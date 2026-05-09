@@ -42,7 +42,9 @@ import {
   Megaphone,
   AlertCircle,
   Play,
-  Pause
+  Pause,
+  Link as LinkIcon,
+  Shield
 } from "lucide-react"
 import { toast } from "sonner"
 import Papa from "papaparse"
@@ -60,7 +62,10 @@ export default function CampaignsPage() {
 
   const [selectedBotId, setSelectedBotId] = useState("")
   const [message, setMessage] = useState("")
-  const [delayMs, setDelayMs] = useState(3000)
+  const [delayMs, setDelayMs] = useState(5000)
+  const [insertGroupLink, setInsertGroupLink] = useState(false)
+  const [groupLinkUrl, setGroupLinkUrl] = useState("")
+  const [insertEvery, setInsertEvery] = useState(5)
   const [selectedContacts, setSelectedContacts] = useState<string[]>([])
   const [selectAll, setSelectAll] = useState(false)
   const [filterTag, setFilterTag] = useState("all")
@@ -138,6 +143,10 @@ export default function CampaignsPage() {
       toast.error("Digite a mensagem da campanha")
       return
     }
+    if (insertGroupLink && !groupLinkUrl.trim()) {
+      toast.error("Digite o link do grupo se deseja inserir nas mensagens")
+      return
+    }
 
     // Determina quais contatos usar
     let campaignContacts: CampaignResult[] = []
@@ -169,6 +178,14 @@ export default function CampaignsPage() {
       if (abortRef.current) break
 
       const contact = campaignContacts[i]
+      
+      // Determina a mensagem a enviar
+      let messageToSend = message
+      
+      // Insere link do grupo a cada N mensagens
+      if (insertGroupLink && groupLinkUrl && (i + 1) % insertEvery === 0) {
+        messageToSend = `${message}\n\n🔗 Junte-se ao nosso grupo:\n${groupLinkUrl}`
+      }
 
       try {
         const res = await fetch("/api/whatsapp/bulk-send", {
@@ -177,7 +194,7 @@ export default function CampaignsPage() {
           body: JSON.stringify({
             botId: selectedBotId,
             contacts: [contact.phone],
-            message,
+            message: messageToSend,
             delayMs: 0, // delay controlado aqui no front
           }),
         })
@@ -197,7 +214,7 @@ export default function CampaignsPage() {
       setResults([...campaignContacts])
       setProgress(Math.round(((i + 1) / total) * 100))
 
-      // Delay entre mensagens
+      // Delay entre mensagens - IMPORTANTE para evitar ban
       if (i < total - 1 && delayMs > 0 && !abortRef.current) {
         await new Promise((r) => setTimeout(r, delayMs))
       }
@@ -261,7 +278,7 @@ export default function CampaignsPage() {
                 <Label>Mensagem</Label>
                 <Textarea
                   placeholder="Digite a mensagem que será enviada para todos os contatos..."
-                  className="bg-secondary border-border min-h-[120px]"
+                  className="bg-secondary border-border min-h-[100px]"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                 />
@@ -269,19 +286,59 @@ export default function CampaignsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Intervalo entre mensagens</Label>
+                <Label className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-yellow-500" />
+                  Intervalo entre mensagens (Anti-Ban)
+                </Label>
                 <Select value={String(delayMs)} onValueChange={(v) => setDelayMs(Number(v))}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1000">1 segundo</SelectItem>
-                    <SelectItem value="2000">2 segundos</SelectItem>
-                    <SelectItem value="3000">3 segundos (recomendado)</SelectItem>
-                    <SelectItem value="5000">5 segundos</SelectItem>
-                    <SelectItem value="10000">10 segundos (mais seguro)</SelectItem>
+                    <SelectItem value="3000">3 segundos</SelectItem>
+                    <SelectItem value="5000">5 segundos (recomendado)</SelectItem>
+                    <SelectItem value="7000">7 segundos</SelectItem>
+                    <SelectItem value="10000">10 segundos</SelectItem>
+                    <SelectItem value="15000">15 segundos (máxima segurança)</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-yellow-500">⚠️ Delays menores podem resultar em ban. Use 5s+ para segurança.</p>
+              </div>
+
+              <div className="space-y-2 border-t border-border pt-3">
+                <Label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={insertGroupLink}
+                    onChange={(e) => setInsertGroupLink(e.target.checked)}
+                    className="rounded"
+                  />
+                  <LinkIcon className="w-4 h-4" />
+                  Inserir link do grupo nas mensagens
+                </Label>
+                {insertGroupLink && (
+                  <>
+                    <Input
+                      placeholder="https://chat.whatsapp.com/..."
+                      className="bg-secondary border-border text-xs"
+                      value={groupLinkUrl}
+                      onChange={(e) => setGroupLinkUrl(e.target.value)}
+                    />
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs text-muted-foreground">A cada</span>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={insertEvery}
+                        onChange={(e) => setInsertEvery(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="bg-secondary border-border text-xs w-16"
+                      />
+                      <span className="text-xs text-muted-foreground">mensagens</span>
+                    </div>
+                    <p className="text-xs text-green-500">✓ O link será inserido a cada {insertEvery} mensagens</p>
+                  </>
+                )}
               </div>
 
               <div className="space-y-2">

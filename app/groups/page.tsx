@@ -41,8 +41,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Group,
-  RefreshCw
+  RefreshCw,
+  Globe
 } from "lucide-react"
+import Link from "next/link"
 import { toast } from "sonner"
 import Papa from "papaparse"
 
@@ -192,6 +194,20 @@ export default function GroupsPage() {
 
   return (
     <DashboardLayout title="Busca de Grupos" description="Encontre grupos do WhatsApp e extraia contatos">
+      <div className="flex items-center gap-2 mb-4">
+        <Button asChild className="gap-2 bg-blue-600 hover:bg-blue-700">
+          <Link href="/groups/search">
+            <Globe className="w-4 h-4" />
+            Buscar Grupos na Internet
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="gap-2">
+          <Link href="/groups/extract">
+            <Download className="w-4 h-4" />
+            Extrair Membros
+          </Link>
+        </Button>
+      </div>
       {/* Configuração de Busca */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-3">
