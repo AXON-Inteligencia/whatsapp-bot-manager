@@ -50,7 +50,7 @@ export default function HelpPage() {
   const guides = [
     {
       title: "Guia de Início Rápido",
-      description: "Aprenda o básico sobre como usar o WhatsApp Bot Manager em poucos minutos.",
+      description: "Aprenda o básico sobre como usar o AxonFlow em poucos minutos.",
     },
     {
       title: "Configuração de Bots",
@@ -69,7 +69,7 @@ export default function HelpPage() {
   return (
     <DashboardLayout
       title="Ajuda"
-      description="Centro de ajuda e documentação do WhatsApp Bot Manager."
+      description="Centro de ajuda e documentação do AxonFlow."
     >
       <div className="flex flex-col gap-8">
         {/* Seção de Guias */}

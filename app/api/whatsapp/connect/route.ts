@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WhatsAppService } from '@/lib/whatsapp/service';
+import { Redis } from '@upstash/redis';
 
-// Nota: Em um ambiente real, usaríamos WebSockets ou Server-Sent Events para o QR Code.
-// Para este MVP, vamos simular o início da conexão.
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL || '',
+  token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,16 +15,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'botId é obrigatório' }, { status: 400 });
     }
 
-    // Inicia a conexão em background
-    // Em produção, isso precisaria de um gerenciador de processos ou worker
+    // Marca o bot como conectando
+    await redis.set(`status:${botId}`, 'connecting');
+
+    // Inicia a conexão em background — o WhatsAppService já salva o QR no Redis internamente
     WhatsAppService.connect(
-      botId, 
-      (qr) => {
-        // Aqui salvaríamos o QR no Redis para o frontend buscar
-        console.log(`QR Code para ${botId}: ${qr}`);
+      botId,
+      async (qr) => {
+        // Garante que o QR está salvo no Redis com TTL de 90 segundos
+        await redis.set(`qr:${botId}`, qr, { ex: 90 });
+        await redis.set(`status:${botId}`, 'connecting');
       },
-      () => {
-        console.log(`Bot ${botId} conectado!`);
+      async () => {
+        // Quando conectado, limpa o QR e atualiza o status
+        await redis.del(`qr:${botId}`);
+        await redis.set(`status:${botId}`, 'online');
       }
     );
 

@@ -57,6 +57,7 @@ import {
 import { cn } from "@/lib/utils"
 import { BotStatus } from "@/lib/types"
 import { toast } from "sonner"
+import { QRCodeSVG } from "qrcode.react"
 
 export default function BotsPage() {
   const bots = useAppStore((state) => state.bots)
@@ -247,14 +248,14 @@ export default function BotsPage() {
             <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg">
               {qrCode ? (
                 <div className="p-4 bg-white rounded-xl shadow-sm border">
-                  {/* Aqui usaríamos um componente de QR Code real */}
-                  <div className="w-64 h-64 bg-slate-100 flex items-center justify-center text-slate-400 text-center p-4 border-2 border-dashed border-slate-300 rounded-lg">
-                    <div className="flex flex-col items-center gap-3">
-                      <QrCode className="w-12 h-12 opacity-20" />
-                      <p className="text-xs font-mono break-all">{qrCode}</p>
-                      <p className="text-[10px] text-slate-500 mt-2 italic">QR Code gerado. Use um componente como qrcode.react para renderizar.</p>
-                    </div>
-                  </div>
+                  <QRCodeSVG
+                    value={qrCode}
+                    size={256}
+                    bgColor="#ffffff"
+                    fgColor="#000000"
+                    level="M"
+                    includeMargin={true}
+                  />
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-4 py-8">

@@ -54,8 +54,8 @@ export function DashboardSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="font-semibold text-sidebar-foreground">BotManager</span>
-              <span className="text-xs text-muted-foreground">WhatsApp</span>
+              <span className="font-semibold text-sidebar-foreground">AxonFlow</span>
+              <span className="text-xs text-muted-foreground">Automação Inteligente</span>
             </div>
           )}
         </div>

@@ -61,7 +61,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="admin@botmanager.local"
+                placeholder="admin@axonflow.local"
               />
             </div>
             <div>

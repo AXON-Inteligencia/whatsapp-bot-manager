@@ -16,7 +16,7 @@ const defaultUsers: User[] = [
   {
     id: "user-1",
     name: "Administrador",
-    email: "admin@botmanager.local",
+    email: "admin@axonflow.local",
     password: "admin123",
     role: "admin",
   },
