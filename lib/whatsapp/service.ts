@@ -21,10 +21,13 @@ export class WhatsAppService {
   private static instances: Map<string, any> = new Map();
 
   static async connect(botId: string, onQR: (qr: string) => void, onConnected: () => void) {
-    const authPath = path.join(process.cwd(), 'sessions', botId);
+    // Na Vercel, apenas a pasta /tmp é gravável
+    const baseDir = process.env.VERCEL ? '/tmp' : process.cwd();
+    const sessionsDir = path.join(baseDir, 'sessions');
+    const authPath = path.join(sessionsDir, botId);
     
-    if (!fs.existsSync(path.join(process.cwd(), 'sessions'))) {
-      fs.mkdirSync(path.join(process.cwd(), 'sessions'));
+    if (!fs.existsSync(sessionsDir)) {
+      fs.mkdirSync(sessionsDir, { recursive: true });
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(authPath);
@@ -102,7 +105,6 @@ export class WhatsAppService {
 
   private static async handleAutomation(botId: string, from: string, text: string) {
     try {
-      // Buscar automações ativas para este bot no Redis
       const automationsKey = `automations:${botId}`;
       const automations = await redis.get<any[]>(automationsKey) || [];
       
@@ -112,7 +114,6 @@ export class WhatsAppService {
         let shouldTrigger = false;
         
         if (auto.trigger === 'Novo contato') {
-          // Lógica simplificada: se for a primeira vez que vemos esse contato
           shouldTrigger = true; 
         } else if (auto.trigger === 'Palavra-chave' && auto.keyword) {
           shouldTrigger = text.toLowerCase().includes(auto.keyword.toLowerCase());
@@ -120,11 +121,10 @@ export class WhatsAppService {
 
         if (shouldTrigger && auto.response) {
           await this.sendMessage(botId, from, auto.response);
-          // Incrementar contador de execuções
           auto.executions = (auto.executions || 0) + 1;
           auto.lastExecution = new Date();
           await redis.set(automationsKey, automations);
-          break; // Executa apenas a primeira automação que der match
+          break;
         }
       }
     } catch (error) {
