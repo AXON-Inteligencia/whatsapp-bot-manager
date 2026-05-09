@@ -272,6 +272,52 @@ interface AppStore {
   getFilteredBots: () => Bot[]
 }
 
+// Custom storage handler to properly deserialize Date objects
+const customStorage = {
+  getItem: (name: string) => {
+    const item = localStorage.getItem(name)
+    if (!item) return null
+    try {
+      const parsed = JSON.parse(item)
+      // Deserialize Date fields
+      if (parsed.conversations) {
+        parsed.conversations = parsed.conversations.map((conv: any) => ({
+          ...conv,
+          timestamp: new Date(conv.timestamp),
+        }))
+      }
+      if (parsed.bots) {
+        parsed.bots = parsed.bots.map((bot: any) => ({
+          ...bot,
+          createdAt: new Date(bot.createdAt),
+        }))
+      }
+      if (parsed.contacts) {
+        parsed.contacts = parsed.contacts.map((contact: any) => ({
+          ...contact,
+          lastContact: new Date(contact.lastContact),
+        }))
+      }
+      if (parsed.automations) {
+        parsed.automations = parsed.automations.map((auto: any) => ({
+          ...auto,
+          lastExecution: new Date(auto.lastExecution),
+        }))
+      }
+      return JSON.stringify(parsed)
+    } catch (error) {
+      console.error('Error deserializing store:', error)
+      return item
+    }
+  },
+  setItem: (name: string, value: string) => {
+    localStorage.setItem(name, value)
+  },
+  removeItem: (name: string) => {
+    localStorage.removeItem(name)
+  },
+}
+
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
@@ -454,6 +500,7 @@ export const useAppStore = create<AppStore>()(
 }),
     {
       name: "whatsapp-bot-manager",
+      storage: customStorage as any,
       partialize: (state) => ({
         bots: state.bots,
         contacts: state.contacts,
