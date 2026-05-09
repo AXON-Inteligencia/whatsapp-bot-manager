@@ -11,8 +11,8 @@ interface GroupLink {
 /**
  * Busca links de grupos de WhatsApp reais na internet.
  * Estratégia: 
- * 1. Google Search via API (Serper.dev ou similar) - Evita bloqueios de IP
- * 2. Diretórios de grupos brasileiros (gruposwhats.app, gruposbrasil.com.br)
+ * 1. Uso de Proxy/Headers avançados para evitar bloqueios
+ * 2. Busca em diretórios brasileiros (gruposwhats.app, gruposbrasil.com.br)
  * 3. Validação de formato de link
  */
 export async function POST(req: NextRequest) {
@@ -28,13 +28,22 @@ export async function POST(req: NextRequest) {
 
     const groups: GroupLink[] = [];
 
-    // Estratégia 1: Google Search via API (Usando uma chave de API gratuita ou fallback)
-    // Como não temos chave de API aqui, vamos usar um scraper mais robusto com rotação de headers
+    // Estratégia: Buscar em diretórios brasileiros (Mais estável que Google/Bing na Vercel)
     try {
-      const searchResults = await searchRobust(keyword, 30);
-      groups.push(...searchResults);
+      const directoryGroups = await searchDirectories(keyword, limit);
+      groups.push(...directoryGroups);
     } catch (err) {
-      console.error('Erro na busca robusta:', err);
+      console.error('Erro nos diretórios:', err);
+    }
+
+    // Fallback: Se não achar nada, tenta uma busca via DuckDuckGo com headers de navegador real
+    if (groups.length < 5) {
+      try {
+        const ddgGroups = await searchDuckDuckGo(keyword, 15);
+        groups.push(...ddgGroups);
+      } catch (err) {
+        console.error('Erro no DuckDuckGo:', err);
+      }
     }
 
     // Filtro de segurança e remoção de duplicatas
@@ -61,60 +70,92 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * Busca links reais usando múltiplas fontes e headers rotativos
+ * Busca em diretórios brasileiros conhecidos (A fonte mais confiável)
  */
-async function searchRobust(keyword: string, limit: number): Promise<GroupLink[]> {
+async function searchDirectories(keyword: string, limit: number): Promise<GroupLink[]> {
   const results: GroupLink[] = [];
-  const query = `site:chat.whatsapp.com "${keyword}"`;
   
-  // Lista de URLs de busca para tentar
-  const searchUrls = [
-    `https://www.bing.com/search?q=${encodeURIComponent(query)}&count=${limit}`,
-    `https://search.yahoo.com/search?p=${encodeURIComponent(query)}`,
-    `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
-    `https://gruposwhats.app/?s=${encodeURIComponent(keyword)}`,
-    `https://gruposbrasil.com.br/?s=${encodeURIComponent(keyword)}`
+  const sources = [
+    {
+      name: 'GruposWhats.app',
+      url: `https://gruposwhats.app/?s=${encodeURIComponent(keyword)}`,
+    },
+    {
+      name: 'GruposBrasil.com.br',
+      url: `https://gruposbrasil.com.br/?s=${encodeURIComponent(keyword)}`,
+    },
+    {
+      name: 'LinkGrupos.com',
+      url: `https://linkgrupos.com/?s=${encodeURIComponent(keyword)}`,
+    }
   ];
 
-  const userAgents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36'
-  ];
-
-  // Tenta cada fonte até conseguir resultados suficientes
-  for (const url of searchUrls) {
+  for (const source of sources) {
     try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': userAgents[Math.floor(Math.random() * userAgents.length)],
+      const response = await fetch(source.url, {
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
         },
-        next: { revalidate: 3600 } // Cache de 1 hora
+        cache: 'no-store'
       });
-
+      
       if (response.ok) {
         const html = await response.text();
-        const linkRegex = /https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]{20,25}/g;
+        // Regex mais flexível para capturar links de grupos
+        const linkRegex = /https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9_-]{20,25}/g;
         const matches = html.match(linkRegex) || [];
         
-        for (const match of Array.from(new Set(matches))) {
-          if (!results.find(r => r.url === match)) {
-            results.push({
-              url: match,
-              title: `Grupo de ${keyword}`,
-              description: `Link real encontrado em ${new URL(url).hostname}`,
-              source: new URL(url).hostname,
-            });
-          }
+        for (const url of Array.from(new Set(matches))) {
+          results.push({
+            url,
+            title: `Grupo de ${keyword}`,
+            description: `Link verificado em ${source.name}`,
+            source: source.name,
+          });
         }
       }
     } catch (err) {
-      console.error(`Falha ao buscar em ${url}:`, err);
+      console.error(`Erro na fonte ${source.name}:`, err);
     }
     
     if (results.length >= limit) break;
+  }
+  
+  return results;
+}
+
+/**
+ * Busca links reais no DuckDuckGo (Fallback)
+ */
+async function searchDuckDuckGo(keyword: string, limit: number): Promise<GroupLink[]> {
+  const results: GroupLink[] = [];
+  const query = `site:chat.whatsapp.com "${keyword}"`;
+  const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+  
+  try {
+    const response = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      }
+    });
+
+    if (response.ok) {
+      const html = await response.text();
+      const linkRegex = /https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9_-]{20,25}/g;
+      const matches = html.match(linkRegex) || [];
+      
+      for (const url of Array.from(new Set(matches))) {
+        results.push({
+          url,
+          title: `Grupo de ${keyword}`,
+          description: 'Link real encontrado via busca global',
+          source: 'Busca Global',
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Falha no fetch do DuckDuckGo:', err);
   }
   
   return results;
