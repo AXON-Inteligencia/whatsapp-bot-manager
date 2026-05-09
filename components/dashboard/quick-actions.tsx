@@ -10,8 +10,11 @@ import {
   RefreshCw, 
   QrCode,
   FileText,
-  Zap
+  Zap,
+  Megaphone,
+  UsersRound
 } from "lucide-react"
+import Link from "next/link"
 
 const actions = [
   {
@@ -19,48 +22,56 @@ const actions = [
     icon: Bot,
     description: "Criar um novo bot",
     variant: "default" as const,
+    href: "/bots",
   },
   {
-    name: "Broadcast",
-    icon: MessageSquare,
-    description: "Enviar mensagem em massa",
+    name: "Campanhas",
+    icon: Megaphone,
+    description: "Disparo em massa",
     variant: "outline" as const,
+    href: "/campaigns",
   },
   {
-    name: "QR Code",
-    icon: QrCode,
-    description: "Reconectar dispositivo",
+    name: "Grupos",
+    icon: UsersRound,
+    description: "Buscar grupos WhatsApp",
     variant: "outline" as const,
+    href: "/groups",
   },
   {
     name: "Automação",
     icon: Zap,
     description: "Criar fluxo automático",
     variant: "outline" as const,
+    href: "/automations",
   },
   {
-    name: "Importar",
+    name: "Contatos",
     icon: Upload,
     description: "Importar contatos",
     variant: "outline" as const,
+    href: "/contacts",
   },
   {
-    name: "Exportar",
+    name: "Analytics",
     icon: Download,
-    description: "Exportar relatório",
+    description: "Ver relatórios",
     variant: "outline" as const,
+    href: "/analytics",
   },
   {
-    name: "Sincronizar",
-    icon: RefreshCw,
-    description: "Sincronizar dados",
+    name: "QR Code",
+    icon: QrCode,
+    description: "Reconectar dispositivo",
     variant: "outline" as const,
+    href: "/bots",
   },
   {
     name: "Logs",
     icon: FileText,
     description: "Ver logs do sistema",
     variant: "outline" as const,
+    href: "/admin",
   },
 ]
 
@@ -78,9 +89,12 @@ export function QuickActions() {
               key={action.name}
               variant={action.variant}
               className="h-auto flex-col gap-2 py-4 px-3"
+              asChild
             >
-              <action.icon className="w-5 h-5" />
-              <span className="text-xs font-medium">{action.name}</span>
+              <Link href={action.href}>
+                <action.icon className="w-5 h-5" />
+                <span className="text-xs font-medium">{action.name}</span>
+              </Link>
             </Button>
           ))}
         </div>

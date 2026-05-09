@@ -246,6 +246,7 @@ interface AppStore {
   addContact: (contact: Omit<Contact, "id" | "lastContact" | "totalMessages">) => void
   updateContact: (id: string, updates: Partial<Contact>) => void
   deleteContact: (id: string) => void
+  importContacts: (newContacts: Omit<Contact, "id" | "lastContact" | "totalMessages">[]) => number
   
   // Automation Actions
   addAutomation: (automation: Omit<Automation, "id" | "executions" | "lastExecution">) => void
@@ -394,6 +395,28 @@ export const useAppStore = create<AppStore>()(
   
   deleteContact: (id) => {
     set((state) => ({ contacts: state.contacts.filter((contact) => contact.id !== id) }))
+  },
+
+  importContacts: (newContacts) => {
+    let added = 0
+    const state = get()
+    const toAdd: Contact[] = []
+    for (const c of newContacts) {
+      const exists = state.contacts.find((e) => e.phone.replace(/\D/g, '') === c.phone.replace(/\D/g, ''))
+      if (!exists) {
+        toAdd.push({
+          ...c,
+          id: generateId(),
+          lastContact: new Date(),
+          totalMessages: 0,
+        })
+        added++
+      }
+    }
+    if (toAdd.length > 0) {
+      set((state) => ({ contacts: [...state.contacts, ...toAdd] }))
+    }
+    return added
   },
   
   // Automation Actions

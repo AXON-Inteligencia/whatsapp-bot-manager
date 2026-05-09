@@ -21,7 +21,6 @@ export class WhatsAppService {
   private static instances: Map<string, any> = new Map();
 
   static async connect(botId: string, onQR: (qr: string) => void, onConnected: () => void) {
-    // Na Vercel, APENAS a pasta /tmp é gravável. Forçamos o uso dela.
     const sessionsDir = '/tmp/sessions';
     const authPath = path.join(sessionsDir, botId);
     
@@ -101,6 +100,52 @@ export class WhatsAppService {
     if (!sock) throw new Error('Bot não conectado');
     
     await sock.sendMessage(remoteJid, { text });
+  }
+
+  /**
+   * Retorna todos os grupos do WhatsApp em que o bot está participando,
+   * filtrando pelo termo de busca se fornecido.
+   */
+  static async getGroups(botId: string, query: string = '') {
+    const sock = this.getInstance(botId);
+    if (!sock) throw new Error('Bot não conectado');
+
+    // groupFetchAllParticipating retorna um objeto { [groupId]: GroupMetadata }
+    const groupsObj = await sock.groupFetchAllParticipating();
+    const groups = Object.values(groupsObj) as any[];
+
+    const filtered = query
+      ? groups.filter((g: any) =>
+          g.subject?.toLowerCase().includes(query.toLowerCase()) ||
+          g.desc?.toLowerCase().includes(query.toLowerCase())
+        )
+      : groups;
+
+    return filtered.map((g: any) => ({
+      id: g.id,
+      name: g.subject || 'Sem nome',
+      description: g.desc || '',
+      participantCount: g.participants?.length || 0,
+      createdAt: g.creation ? new Date(g.creation * 1000).toISOString() : null,
+      owner: g.owner || '',
+    }));
+  }
+
+  /**
+   * Retorna todos os membros de um grupo específico.
+   */
+  static async getGroupMembers(botId: string, groupId: string) {
+    const sock = this.getInstance(botId);
+    if (!sock) throw new Error('Bot não conectado');
+
+    const metadata = await sock.groupMetadata(groupId);
+    
+    return metadata.participants.map((p: any) => ({
+      id: p.id,
+      phone: p.id.replace('@s.whatsapp.net', '').replace('@g.us', ''),
+      isAdmin: p.admin === 'admin' || p.admin === 'superadmin',
+      role: p.admin || 'member',
+    }));
   }
 
   private static async handleAutomation(botId: string, from: string, text: string) {

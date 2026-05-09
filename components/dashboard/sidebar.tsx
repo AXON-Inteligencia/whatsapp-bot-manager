@@ -13,6 +13,8 @@ import {
   HelpCircle,
   ChevronLeft,
   ChevronRight,
+  Megaphone,
+  UsersRound,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -25,6 +27,8 @@ const navigation = [
   { name: "Bots", href: "/bots", icon: Bot },
   { name: "Conversas", href: "/conversations", icon: MessageSquare },
   { name: "Contatos", href: "/contacts", icon: Users },
+  { name: "Campanhas", href: "/campaigns", icon: Megaphone },
+  { name: "Grupos", href: "/groups", icon: UsersRound },
   { name: "Automações", href: "/automations", icon: Zap },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Admin", href: "/admin", icon: ShieldCheck },
