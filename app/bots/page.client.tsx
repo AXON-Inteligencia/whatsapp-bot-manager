@@ -364,7 +364,11 @@ export default function BotsPage() {
                       <Power className="w-4 h-4" />
                       {bot.status === "offline" ? "Conectar WhatsApp" : bot.status === "online" ? "Desativar" : "Ativar"}
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="gap-2">
+                    <DropdownMenuItem className="gap-2" onClick={() => {
+                      setActiveBotId(bot.id)
+                      setIsQrOpen(true)
+                      pollQrCode(bot.id)
+                    }}>
                       <QrCode className="w-4 h-4" />
                       QR Code
                     </DropdownMenuItem>
