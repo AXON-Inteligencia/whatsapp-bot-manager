@@ -68,12 +68,14 @@ pnpm dev
 │   ├── dashboard/         # Componentes do dashboard
 │   └── ui/                # Componentes UI reutilizáveis
 ├── lib/                   # Utilitários e lógica
-│   ├── db.ts             # Banco de dados local
+│   ├── db.ts             # Banco de dados (Redis/Upstash)
 │   ├── store.ts          # Estado global (Zustand)
 │   └── types.ts          # Tipos TypeScript
-├── data/                  # Dados locais
+├── data/                  # Dados locais (desenvolvimento)
 └── public/               # Assets estáticos
 ```
+
+## 🚀 Deploy
 
 ## 🚀 Deploy
 
@@ -82,7 +84,24 @@ pnpm dev
 1. Faça push do código para o GitHub
 2. Acesse [vercel.com](https://vercel.com)
 3. Importe seu repositório
-4. Deploy automático!
+4. **Configure as variáveis de ambiente** (veja abaixo)
+5. Clique em **"Deploy"**
+
+### Configuração do Banco de Dados
+
+Para produção, o projeto usa **Upstash Redis** (gratuito):
+
+1. Acesse [console.upstash.com](https://console.upstash.com)
+2. Crie uma conta gratuita
+3. Crie um novo banco Redis
+4. Copie a **REST URL** e **REST Token**
+5. No Vercel, adicione as variáveis de ambiente:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
+
+### Desenvolvimento Local
+
+Para desenvolvimento, o projeto funciona sem Redis (usa dados em memória).
 
 ### Outras Opções
 

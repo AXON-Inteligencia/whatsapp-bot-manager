@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     )
   }
 
-  const user = authenticateUser(email, password)
+  const user = await authenticateUser(email, password)
   if (!user) {
     return NextResponse.json(
       { error: "Credenciais inválidas. Verifique email e senha." },

@@ -1,9 +1,16 @@
-import fs from "fs"
-import path from "path"
+import { Redis } from "@upstash/redis"
 import { User } from "./types"
 
-const DB_DIR = path.join(process.cwd(), "data")
-const DB_FILE = path.join(DB_DIR, "db.json")
+// Fallback para desenvolvimento local
+let redis: Redis | null = null
+
+// Inicializar Redis apenas se as variáveis de ambiente estiverem disponíveis
+if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+  redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  })
+}
 
 const defaultUsers: User[] = [
   {
@@ -15,41 +22,52 @@ const defaultUsers: User[] = [
   },
 ]
 
-interface DbSchema {
-  users: User[]
-}
+const USERS_KEY = "whatsapp-bot-manager:users"
 
-const ensureDb = () => {
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true })
+// Função auxiliar para garantir que temos usuários padrão
+const ensureDefaultUsers = async (): Promise<User[]> => {
+  if (!redis) {
+    // Desenvolvimento local - usar dados em memória
+    return defaultUsers
   }
 
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify({ users: defaultUsers }, null, 2), "utf8")
+  try {
+    const users = await redis.get<User[]>(USERS_KEY)
+    if (!users || users.length === 0) {
+      await redis.set(USERS_KEY, defaultUsers)
+      return defaultUsers
+    }
+    return users
+  } catch (error) {
+    console.error("Erro ao acessar Redis:", error)
+    return defaultUsers
   }
-}
-
-const readDb = (): DbSchema => {
-  ensureDb()
-  return JSON.parse(fs.readFileSync(DB_FILE, "utf8")) as DbSchema
-}
-
-const writeDb = (data: DbSchema) => {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf8")
 }
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
-export const getUsers = (): User[] => {
-  return readDb().users
+export const getUsers = async (): Promise<User[]> => {
+  if (!redis) {
+    // Desenvolvimento local
+    return defaultUsers
+  }
+
+  try {
+    const users = await redis.get<User[]>(USERS_KEY)
+    return users || await ensureDefaultUsers()
+  } catch (error) {
+    console.error("Erro ao buscar usuários:", error)
+    return defaultUsers
+  }
 }
 
-export const findUserByEmail = (email: string): User | undefined => {
-  return getUsers().find((user) => user.email === normalizeEmail(email))
+export const findUserByEmail = async (email: string): Promise<User | undefined> => {
+  const users = await getUsers()
+  return users.find((user) => user.email === normalizeEmail(email))
 }
 
-export const addUser = (userData: Omit<User, "id">): User => {
-  const users = getUsers()
+export const addUser = async (userData: Omit<User, "id">): Promise<User> => {
+  const users = await getUsers()
   const email = normalizeEmail(userData.email)
 
   if (users.some((user) => user.email === email)) {
@@ -57,20 +75,29 @@ export const addUser = (userData: Omit<User, "id">): User => {
   }
 
   const newUser: User = {
-    id: `user-${Date.now()}`,
+    id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     name: userData.name,
     email,
     password: userData.password,
     role: userData.role,
   }
 
-  users.push(newUser)
-  writeDb({ users })
+  const updatedUsers = [...users, newUser]
+
+  if (redis) {
+    try {
+      await redis.set(USERS_KEY, updatedUsers)
+    } catch (error) {
+      console.error("Erro ao salvar usuário no Redis:", error)
+      throw new Error("Erro interno do servidor")
+    }
+  }
+
   return newUser
 }
 
-export const authenticateUser = (email: string, password: string): User | null => {
-  const user = findUserByEmail(email)
+export const authenticateUser = async (email: string, password: string): Promise<User | null> => {
+  const user = await findUserByEmail(email)
   if (!user || user.password !== password) {
     return null
   }

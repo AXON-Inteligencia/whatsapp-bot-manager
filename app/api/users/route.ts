@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { addUser, getUsers } from "@/lib/db"
 
 export async function GET() {
-  const users = getUsers()
+  const users = await getUsers()
   return NextResponse.json(
     users.map((user) => ({
       id: user.id,
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const newUser = addUser({
+    const newUser = await addUser({
       name,
       email,
       password,
