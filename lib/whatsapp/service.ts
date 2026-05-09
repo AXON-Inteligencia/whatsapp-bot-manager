@@ -21,13 +21,16 @@ export class WhatsAppService {
   private static instances: Map<string, any> = new Map();
 
   static async connect(botId: string, onQR: (qr: string) => void, onConnected: () => void) {
-    // Na Vercel, apenas a pasta /tmp é gravável
-    const baseDir = process.env.VERCEL ? '/tmp' : process.cwd();
-    const sessionsDir = path.join(baseDir, 'sessions');
+    // Na Vercel, APENAS a pasta /tmp é gravável. Forçamos o uso dela.
+    const sessionsDir = '/tmp/sessions';
     const authPath = path.join(sessionsDir, botId);
     
-    if (!fs.existsSync(sessionsDir)) {
-      fs.mkdirSync(sessionsDir, { recursive: true });
+    try {
+      if (!fs.existsSync(sessionsDir)) {
+        fs.mkdirSync(sessionsDir, { recursive: true });
+      }
+    } catch (err) {
+      console.error('Erro ao criar diretório de sessões:', err);
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(authPath);
@@ -55,7 +58,6 @@ export class WhatsAppService {
             const from = msg.key.remoteJid;
             
             if (text && from) {
-              console.log(`Mensagem recebida de ${from}: ${text}`);
               await this.handleAutomation(botId, from, text);
             }
           }
@@ -73,7 +75,6 @@ export class WhatsAppService {
 
       if (connection === 'close') {
         const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-        console.log('Conexão fechada devido a erro, reconectando:', shouldReconnect);
         if (shouldReconnect) {
           this.connect(botId, onQR, onConnected);
         } else {
@@ -82,7 +83,6 @@ export class WhatsAppService {
           await redis.set(`status:${botId}`, 'offline');
         }
       } else if (connection === 'open') {
-        console.log('Conexão aberta com sucesso!');
         await redis.del(`qr:${botId}`);
         await redis.set(`status:${botId}`, 'online');
         onConnected();
