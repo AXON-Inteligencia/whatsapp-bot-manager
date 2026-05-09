@@ -16,11 +16,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && localStorage.getItem(AUTH_KEY)) {
-      router.replace("/admin")
-    }
-  }, [router])
+  // O middleware cuidará do redirecionamento se já estiver logado
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()

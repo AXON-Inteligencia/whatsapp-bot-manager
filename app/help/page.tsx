@@ -10,15 +10,7 @@ const AUTH_KEY = "whatsapp-admin-auth"
 export default function HelpPage() {
   const router = useRouter()
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(AUTH_KEY)
-      if (!stored) {
-        router.replace("/login")
-        return
-      }
-    }
-  }, [router])
+  // Proteção gerenciada pelo middleware
 
   const faqs = [
     {

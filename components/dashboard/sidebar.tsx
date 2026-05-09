@@ -19,7 +19,9 @@ import {
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { LogOut } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 const navigation = [
@@ -41,7 +43,14 @@ const bottomNav = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" })
+    localStorage.removeItem("whatsapp-admin-auth")
+    router.push("/login")
+  }
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -145,6 +154,20 @@ export function DashboardSidebar() {
                 <span>Recolher</span>
               </>
             )}
+          </Button>
+
+          {/* Logout Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10",
+              collapsed ? "justify-center" : "px-3"
+            )}
+            onClick={handleLogout}
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            {!collapsed && <span className="ml-3 font-medium">Sair</span>}
           </Button>
         </div>
       </aside>

@@ -27,16 +27,8 @@ export default function AdminPage() {
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(AUTH_KEY)
-      if (!stored) {
-        router.replace("/login")
-        return
-      }
-
-      fetchUsers()
-    }
-  }, [router])
+    fetchUsers()
+  }, [])
 
   const fetchUsers = async () => {
     const response = await fetch("/api/users")
@@ -69,7 +61,8 @@ export default function AdminPage() {
     fetchUsers()
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
     localStorage.removeItem(AUTH_KEY)
     router.push("/login")
   }

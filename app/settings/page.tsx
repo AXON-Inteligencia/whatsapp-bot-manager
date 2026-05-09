@@ -20,12 +20,6 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(AUTH_KEY)
-      if (!stored) {
-        router.replace("/login")
-        return
-      }
-
       // Carregar configurações do localStorage
       const savedTheme = localStorage.getItem("theme") || "dark"
       const savedNotifications = localStorage.getItem("notifications") === "true"
@@ -37,7 +31,7 @@ export default function SettingsPage() {
       setEmailNotifications(savedEmailNotifications)
       setLanguage(savedLanguage)
     }
-  }, [router])
+  }, [])
 
   const handleSaveSettings = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()

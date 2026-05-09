@@ -1,99 +1,69 @@
-import { Redis } from "@upstash/redis"
+import { sql } from "@vercel/postgres"
 import { User } from "./types"
 
-// Fallback para desenvolvimento local
-let redis: Redis | null = null
-
-// Inicializar Redis apenas se as variáveis de ambiente estiverem disponíveis
-if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-  redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  })
-}
-
-const defaultUsers: User[] = [
-  {
-    id: "user-1",
-    name: "Administrador",
-    email: "admin@axonflow.local",
-    password: "admin123",
-    role: "admin",
-  },
-]
-
-const USERS_KEY = "whatsapp-bot-manager:users"
-
-// Função auxiliar para garantir que temos usuários padrão
-const ensureDefaultUsers = async (): Promise<User[]> => {
-  if (!redis) {
-    // Desenvolvimento local - usar dados em memória
-    return defaultUsers
-  }
-
+// Função para inicializar o banco de dados se necessário
+export const initDB = async () => {
   try {
-    const users = await redis.get<User[]>(USERS_KEY)
-    if (!users || users.length === 0) {
-      await redis.set(USERS_KEY, defaultUsers)
-      return defaultUsers
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL
+      );
+    `
+    
+    // Verificar se o admin padrão existe
+    const { rows } = await sql`SELECT * FROM users WHERE email = 'admin@axonflow.local' LIMIT 1;`
+    if (rows.length === 0) {
+      await sql`
+        INSERT INTO users (id, name, email, password, role)
+        VALUES ('user-admin', 'Administrador', 'admin@axonflow.local', 'admin123', 'admin');
+      `
     }
-    return users
   } catch (error) {
-    console.error("Erro ao acessar Redis:", error)
-    return defaultUsers
+    console.error("Erro ao inicializar banco de dados:", error)
   }
 }
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
 export const getUsers = async (): Promise<User[]> => {
-  if (!redis) {
-    // Desenvolvimento local
-    return defaultUsers
-  }
-
   try {
-    const users = await redis.get<User[]>(USERS_KEY)
-    return users || await ensureDefaultUsers()
+    const { rows } = await sql`SELECT id, name, email, role FROM users;`
+    return rows as User[]
   } catch (error) {
     console.error("Erro ao buscar usuários:", error)
-    return defaultUsers
+    return []
   }
 }
 
 export const findUserByEmail = async (email: string): Promise<User | undefined> => {
-  const users = await getUsers()
-  return users.find((user) => user.email === normalizeEmail(email))
+  try {
+    const normalizedEmail = normalizeEmail(email)
+    const { rows } = await sql`SELECT * FROM users WHERE email = ${normalizedEmail} LIMIT 1;`
+    return rows[0] as User | undefined
+  } catch (error) {
+    console.error("Erro ao buscar usuário por email:", error)
+    return undefined
+  }
 }
 
 export const addUser = async (userData: Omit<User, "id">): Promise<User> => {
-  const users = await getUsers()
   const email = normalizeEmail(userData.email)
+  const id = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-  if (users.some((user) => user.email === email)) {
-    throw new Error("Email já cadastrado")
+  try {
+    await sql`
+      INSERT INTO users (id, name, email, password, role)
+      VALUES (${id}, ${userData.name}, ${email}, ${userData.password}, ${userData.role});
+    `
+    return { id, ...userData, email }
+  } catch (error) {
+    console.error("Erro ao adicionar usuário:", error)
+    throw new Error("Erro ao cadastrar usuário ou email já existe")
   }
-
-  const newUser: User = {
-    id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    name: userData.name,
-    email,
-    password: userData.password,
-    role: userData.role,
-  }
-
-  const updatedUsers = [...users, newUser]
-
-  if (redis) {
-    try {
-      await redis.set(USERS_KEY, updatedUsers)
-    } catch (error) {
-      console.error("Erro ao salvar usuário no Redis:", error)
-      throw new Error("Erro interno do servidor")
-    }
-  }
-
-  return newUser
 }
 
 export const authenticateUser = async (email: string, password: string): Promise<User | null> => {
