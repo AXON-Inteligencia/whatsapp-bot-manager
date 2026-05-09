@@ -76,6 +76,9 @@ export default function BotsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingBot, setEditingBot] = useState<string | null>(editId)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [qrCode, setQrCode] = useState<string | null>(null)
+  const [isQrOpen, setIsQrOpen] = useState(false)
+  const [activeBotId, setActiveBotId] = useState<string | null>(null)
   
   const [formData, setFormData] = useState({
     name: "",
@@ -129,6 +132,28 @@ export default function BotsPage() {
       })
       setEditingBot(botId)
     }
+  }
+
+  const pollQrCode = async (botId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/whatsapp/qr?botId=${botId}`)
+        const data = await res.json()
+        if (data.qr) {
+          setQrCode(data.qr)
+        }
+        if (data.status === 'online') {
+          setQrCode(null)
+          setIsQrOpen(false)
+          clearInterval(interval)
+          toast.success("WhatsApp conectado com sucesso!")
+          // Atualizar estado local se necessário
+        }
+      } catch (e) {
+        console.error(e)
+      }
+    }, 3000)
+    return () => clearInterval(interval)
   }
 
   return (
@@ -207,6 +232,41 @@ export default function BotsPage() {
                 Cancelar
               </Button>
               <Button onClick={handleCreate}>Criar bot</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isQrOpen} onOpenChange={setIsQrOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Conectar WhatsApp</DialogTitle>
+              <DialogDescription>
+                Escaneie o QR Code abaixo com o seu WhatsApp para conectar o bot.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg">
+              {qrCode ? (
+                <div className="p-4 bg-white rounded-xl shadow-sm border">
+                  {/* Aqui usaríamos um componente de QR Code real */}
+                  <div className="w-64 h-64 bg-slate-100 flex items-center justify-center text-slate-400 text-center p-4 border-2 border-dashed border-slate-300 rounded-lg">
+                    <div className="flex flex-col items-center gap-3">
+                      <QrCode className="w-12 h-12 opacity-20" />
+                      <p className="text-xs font-mono break-all">{qrCode}</p>
+                      <p className="text-[10px] text-slate-500 mt-2 italic">QR Code gerado. Use um componente como qrcode.react para renderizar.</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4 py-8">
+                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-sm text-muted-foreground">Gerando QR Code...</p>
+                </div>
+              )}
+            </div>
+            <DialogFooter className="sm:justify-center">
+              <p className="text-xs text-muted-foreground text-center">
+                Abra o WhatsApp &gt; Configurações &gt; Dispositivos Conectados &gt; Conectar um dispositivo
+              </p>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -289,11 +349,19 @@ export default function BotsPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem className="gap-2" onClick={() => {
-                      toggleBotStatus(bot.id)
-                      toast.success(bot.status === "online" ? "Bot desligado" : "Bot ligado")
+                      if (bot.status === "offline") {
+                        useAppStore.getState().connectBot(bot.id)
+                        setActiveBotId(bot.id)
+                        setIsQrOpen(true)
+                        pollQrCode(bot.id)
+                        toast.info("Iniciando conexão...")
+                      } else {
+                        toggleBotStatus(bot.id)
+                        toast.success(`Bot ${bot.status === "online" ? "desativado" : "ativado"} com sucesso!`)
+                      }
                     }}>
                       <Power className="w-4 h-4" />
-                      {bot.status === "online" ? "Desligar" : "Ligar"}
+                      {bot.status === "offline" ? "Conectar WhatsApp" : bot.status === "online" ? "Desativar" : "Ativar"}
                     </DropdownMenuItem>
                     <DropdownMenuItem className="gap-2">
                       <QrCode className="w-4 h-4" />

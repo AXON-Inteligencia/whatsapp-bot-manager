@@ -253,6 +253,10 @@ interface AppStore {
   deleteAutomation: (id: string) => void
   toggleAutomation: (id: string) => void
   
+  // WhatsApp Actions
+  connectBot: (id: string) => Promise<void>
+  sendMessage: (botId: string, phone: string, message: string) => Promise<void>
+  
   // Search & Filter Actions
   setSearchTerm: (term: string) => void
   setStatusFilter: (status: BotStatus | "all") => void
@@ -347,12 +351,20 @@ export const useAppStore = create<AppStore>()(
   },
   
   // Automation Actions
-  addAutomation: (automationData) => {
+  addAutomation: async (automationData) => {
     const newAutomation: Automation = {
       ...automationData,
       id: generateId(),
       executions: 0,
     }
+    
+    // Persistir no Redis via API (precisamos criar essa rota)
+    await fetch('/api/automations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newAutomation),
+    });
+
     set((state) => ({ automations: [...state.automations, newAutomation] }))
   },
   
@@ -376,6 +388,41 @@ export const useAppStore = create<AppStore>()(
         automation.id === id ? { ...automation, isActive: !automation.isActive } : automation
       ),
     }))
+  },
+  
+  // WhatsApp Actions
+  connectBot: async (id) => {
+    try {
+      const response = await fetch('/api/whatsapp/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ botId: id }),
+      });
+      if (!response.ok) throw new Error('Falha ao iniciar conexão');
+      
+      set((state) => ({
+        bots: state.bots.map((bot) => 
+          bot.id === id ? { ...bot, status: 'connecting' } : bot
+        )
+      }));
+    } catch (error) {
+      console.error('Erro ao conectar bot:', error);
+      throw error;
+    }
+  },
+
+  sendMessage: async (botId, phone, message) => {
+    try {
+      const response = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ botId, phone, message }),
+      });
+      if (!response.ok) throw new Error('Falha ao enviar mensagem');
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      throw error;
+    }
   },
   
   // Search & Filter Actions
