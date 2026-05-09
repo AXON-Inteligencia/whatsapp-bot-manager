@@ -1,82 +1,125 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-
-const AUTH_KEY = "whatsapp-admin-auth"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
 
-  // O middleware cuidará do redirecionamento se já estiver logado
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setError(null)
-    setIsLoading(true)
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const response = await fetch("/api/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    })
+      const result = await res.json();
 
-    const result = await response.json()
-    setIsLoading(false)
-
-    if (!response.ok) {
-      setError(result.error || "Falha ao fazer login.")
-      return
+      if (res.ok) {
+        localStorage.setItem("whatsapp-admin-auth", JSON.stringify(result.user));
+        router.push("/admin");
+      } else {
+        setError(result.error || "Credenciais inválidas. Tente novamente.");
+      }
+    } catch (err) {
+      setError("Erro ao conectar ao servidor.");
+    } finally {
+      setLoading(false);
     }
-
-    localStorage.setItem(AUTH_KEY, JSON.stringify(result.user))
-    router.push("/admin")
-  }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-6">
-      <Card className="w-full max-w-md border border-border bg-card">
-        <CardHeader>
-          <CardTitle>Login</CardTitle>
-          <CardDescription>Use sua conta para acessar o painel de administração.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="admin@axonflow.local"
-              />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-blue-50 p-4 font-sans">
+      {/* Elementos decorativos de fundo */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-green-200/30 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="max-w-md w-full bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden flex flex-col items-center p-10 border border-white relative z-10">
+        <div className="mb-8 relative w-32 h-32 transform transition-transform hover:scale-110 duration-500">
+          <div className="absolute inset-0 bg-green-500/10 rounded-full blur-xl animate-pulse"></div>
+          <Image
+            src="/login-logo.png"
+            alt="Axon Inteligência Logo"
+            fill
+            className="object-contain relative z-10"
+            priority
+          />
+        </div>
+        
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-2">AxonFlow</h1>
+          <p className="text-slate-500 font-medium">Automação Inteligente para WhatsApp</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="w-full space-y-6">
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700 ml-1">E-mail de Acesso</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:bg-white focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none text-slate-800 placeholder:text-slate-400"
+              placeholder="admin@axoninteligencia.com.br"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700 ml-1">Sua Senha</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:bg-white focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none text-slate-800 placeholder:text-slate-400"
+              placeholder="••••••••"
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="bg-red-50 text-red-600 text-sm py-3 px-4 rounded-xl text-center font-medium animate-shake">
+              {error}
             </div>
-            <div>
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="admin123"
-              />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Entrando..." : "Entrar"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-green-500/30 transition-all transform active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            ) : (
+              "Acessar Dashboard"
+            )}
+          </button>
+        </form>
+
+        <div className="mt-10 flex flex-col items-center gap-4">
+          <button 
+            type="button"
+            onClick={() => router.push("/setup")}
+            className="text-green-600 hover:text-green-700 text-sm font-semibold transition-colors"
+          >
+            Configurar acesso de administrador?
+          </button>
+          <div className="text-slate-400 text-[10px] uppercase tracking-widest font-bold">
+            Powered by Axon Inteligência
+          </div>
+        </div>
+      </div>
     </div>
-  )
+  );
 }
