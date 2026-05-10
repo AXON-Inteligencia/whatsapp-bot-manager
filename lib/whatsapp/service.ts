@@ -11,7 +11,6 @@ import pino from 'pino';
 import path from 'path';
 import fs from 'fs';
 import { Redis } from "@upstash/redis";
-import axios from 'axios';
 
 const logger = pino({ level: 'silent' });
 
@@ -28,19 +27,25 @@ export class WhatsAppService {
    * Conecta um bot via QR Code com persistência de sessão no Redis
    */
   static async connect(botId: string, onQR: (qr: string) => void, onConnected: () => void) {
-    // Verificar se já existe uma instância ativa
+    // 1. Limpar qualquer estado anterior se estiver tentando conectar novamente
     if (this.instances.has(botId)) {
-      console.log(`Bot ${botId} já está conectado`);
-      const sock = this.instances.get(botId);
-      // Se já tiver QR no Redis, notificar
-      const existingQr = await redis.get<string>(`qr:${botId}`);
-      if (existingQr) onQR(existingQr);
-      return sock;
+      const oldSock = this.instances.get(botId);
+      try { oldSock.end(); } catch (e) {}
+      this.instances.delete(botId);
     }
 
     const sessionsDir = '/tmp/sessions';
     const authPath = path.join(sessionsDir, botId);
     
+    // 2. Limpar diretório local de sessão para forçar novo QR se não houver credenciais no Redis
+    const savedCreds = await redis.get(`creds:${botId}`);
+    if (!savedCreds) {
+      console.log(`Nenhuma credencial no Redis para o bot ${botId}. Limpando sessão local.`);
+      if (fs.existsSync(authPath)) {
+        fs.rmSync(authPath, { recursive: true, force: true });
+      }
+    }
+
     try {
       if (!fs.existsSync(sessionsDir)) {
         fs.mkdirSync(sessionsDir, { recursive: true });
@@ -49,8 +54,7 @@ export class WhatsAppService {
       console.error('Erro ao criar diretório de sessões:', err);
     }
 
-    // Tentar recuperar credenciais do Redis antes de iniciar
-    const savedCreds = await redis.get(`creds:${botId}`);
+    // 3. Restaurar credenciais do Redis se existirem
     if (savedCreds && !fs.existsSync(path.join(authPath, 'creds.json'))) {
       try {
         if (!fs.existsSync(authPath)) fs.mkdirSync(authPath, { recursive: true });
@@ -73,7 +77,7 @@ export class WhatsAppService {
       },
       logger,
       shouldIgnoreJid: (jid) => jid.endsWith('@broadcast'),
-      connectTimeoutMs: 60000, // Aumentar timeout para 60s
+      connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 0,
       keepAliveIntervalMs: 10000,
     });
@@ -83,7 +87,6 @@ export class WhatsAppService {
     // Salvar credenciais quando atualizadas
     sock.ev.on('creds.update', async () => {
       await saveCreds();
-      // Também persistir no Redis como backup
       await redis.set(`creds:${botId}`, state.creds, { ex: 2592000 }); // 30 dias
     });
 
@@ -93,7 +96,7 @@ export class WhatsAppService {
 
       if (qr) {
         console.log(`Novo QR Code gerado para o bot ${botId}`);
-        await redis.set(`qr:${botId}`, qr, { ex: 60 }); // Expira em 60s
+        await redis.set(`qr:${botId}`, qr, { ex: 60 });
         await redis.set(`status:${botId}`, 'connecting');
         onQR(qr);
       }
@@ -106,7 +109,6 @@ export class WhatsAppService {
 
         if (shouldReconnect) {
           this.instances.delete(botId);
-          // Aguardar 3 segundos antes de reconectar
           const timer = setTimeout(() => {
             this.connect(botId, onQR, onConnected);
           }, 3000);
@@ -115,7 +117,10 @@ export class WhatsAppService {
           this.instances.delete(botId);
           await redis.del(`qr:${botId}`);
           await redis.set(`status:${botId}`, 'offline');
-          await redis.del(`creds:${botId}`); // Limpar credenciais se deslogado
+          await redis.del(`creds:${botId}`);
+          if (fs.existsSync(authPath)) {
+            fs.rmSync(authPath, { recursive: true, force: true });
+          }
         }
       } else if (connection === 'open') {
         console.log(`Bot ${botId} conectado com sucesso`);
@@ -136,9 +141,6 @@ export class WhatsAppService {
     return sock;
   }
 
-  /**
-   * Desconectar um bot
-   */
   static async disconnect(botId: string) {
     const sock = this.instances.get(botId);
     if (sock) {
@@ -156,6 +158,12 @@ export class WhatsAppService {
       this.reconnectTimers.delete(botId);
     }
 
+    const sessionsDir = '/tmp/sessions';
+    const authPath = path.join(sessionsDir, botId);
+    if (fs.existsSync(authPath)) {
+      fs.rmSync(authPath, { recursive: true, force: true });
+    }
+
     await redis.del(`qr:${botId}`);
     await redis.del(`creds:${botId}`);
     await redis.set(`status:${botId}`, 'offline');
@@ -165,30 +173,8 @@ export class WhatsAppService {
     return this.instances.get(botId);
   }
 
-  static async sendMessage(botId: string, remoteJid: string, text: string) {
-    const sock = this.getInstance(botId);
-    if (!sock) throw new Error('Bot não conectado');
-    
-    const result = await sock.sendMessage(remoteJid, { text });
-    await redis.lpush(`messages:${botId}`, JSON.stringify({
-      to: remoteJid,
-      text,
-      type: 'text',
-      sentAt: new Date().toISOString(),
-      messageId: result.key.id,
-    }));
-    return result;
-  }
-
   static async getStatus(botId: string): Promise<'online' | 'offline' | 'connecting'> {
-    const sock = this.getInstance(botId);
-    if (sock) return 'online';
-    
     const status = await redis.get<string>(`status:${botId}`);
     return (status as any) || 'offline';
-  }
-
-  static getConnectedBots(): string[] {
-    return Array.from(this.instances.keys());
   }
 }
