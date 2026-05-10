@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/dashboard/sidebar";
-import { Header } from "@/components/dashboard/header";
+import { DashboardHeader } from "@/components/dashboard/header";
 import { Trash2, Edit2, X, Check, AlertCircle } from "lucide-react";
 
 interface User {
@@ -77,7 +77,7 @@ export default function UsersManagementPage() {
     <div className="flex h-screen bg-slate-50 font-sans">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
+        <DashboardHeader />
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
