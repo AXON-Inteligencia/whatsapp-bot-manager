@@ -26,7 +26,8 @@ export default function LoginPage() {
       const result = await res.json();
 
       if (res.ok) {
-        router.push("/admin");
+        // Redirecionar para a página principal (Dashboard)
+        router.push("/");
       } else {
         setError(result.error || "Credenciais inválidas. Tente novamente.");
       }
@@ -113,13 +114,6 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-10 flex flex-col items-center gap-4">
-          <button 
-            type="button"
-            onClick={() => router.push("/setup")}
-            className="text-emerald-600 hover:text-emerald-700 text-sm font-semibold transition-colors"
-          >
-            Configurar acesso de administrador?
-          </button>
           <div className="text-slate-400 text-[10px] uppercase tracking-widest font-bold">
             Powered by Axon Inteligência
           </div>
