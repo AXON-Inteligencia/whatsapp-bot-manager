@@ -1,6 +1,6 @@
 "use client"
 
-import { Sidebar } from "./sidebar"
+import { DashboardSidebar } from "./sidebar"
 import { DashboardHeader } from "./header"
 
 interface DashboardLayoutProps {
@@ -12,7 +12,7 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, title, description }: DashboardLayoutProps) {
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <DashboardSidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader />
         <main className="flex-1 overflow-y-auto p-6">
