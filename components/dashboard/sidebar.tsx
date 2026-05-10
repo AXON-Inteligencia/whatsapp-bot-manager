@@ -34,7 +34,8 @@ const navigation = [
   { name: "Automações", href: "/automations", icon: Zap },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Admin", href: "/admin", icon: ShieldCheck },
-]
+  { name: "Usuários", href: "/admin/users", icon: Users },
+
 
 const bottomNav = [
   { name: "Configurações", href: "/settings", icon: Settings },
