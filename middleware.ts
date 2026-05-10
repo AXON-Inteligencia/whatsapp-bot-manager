@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Rotas que não precisam de autenticação
-  const publicPaths = ['/login', '/api/auth']
+  const publicPaths = ['/login', '/setup', '/api/auth', '/api/setup']
   if (publicPaths.some(path => pathname.startsWith(path))) {
     return NextResponse.next()
   }
