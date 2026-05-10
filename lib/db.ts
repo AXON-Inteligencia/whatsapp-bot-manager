@@ -1,5 +1,6 @@
 import { sql } from "@vercel/postgres"
 import { User } from "./types"
+import bcrypt from "bcryptjs"
 
 // Função para inicializar o banco de dados se necessário
 export const initDB = async () => {
@@ -17,9 +18,10 @@ export const initDB = async () => {
     // Verificar se o admin padrão existe
     const { rows } = await sql`SELECT * FROM users WHERE email = 'admin@axonflow.local' LIMIT 1;`
     if (rows.length === 0) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
       await sql`
         INSERT INTO users (id, name, email, password, role)
-        VALUES ('user-admin', 'Administrador', 'admin@axonflow.local', 'admin123', 'admin');
+        VALUES ('user-admin', 'Administrador', 'admin@axonflow.local', ${hashedPassword}, 'admin');
       `
     }
   } catch (error) {
@@ -53,13 +55,14 @@ export const findUserByEmail = async (email: string): Promise<User | undefined> 
 export const addUser = async (userData: Omit<User, "id">): Promise<User> => {
   const email = normalizeEmail(userData.email)
   const id = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  const hashedPassword = await bcrypt.hash(userData.password, 10);
 
   try {
     await sql`
       INSERT INTO users (id, name, email, password, role)
-      VALUES (${id}, ${userData.name}, ${email}, ${userData.password}, ${userData.role});
+      VALUES (${id}, ${userData.name}, ${email}, ${hashedPassword}, ${userData.role});
     `
-    return { id, ...userData, email }
+    return { id, ...userData, email, password: hashedPassword }
   } catch (error) {
     console.error("Erro ao adicionar usuário:", error)
     throw new Error("Erro ao cadastrar usuário ou email já existe")
@@ -68,7 +71,12 @@ export const addUser = async (userData: Omit<User, "id">): Promise<User> => {
 
 export const authenticateUser = async (email: string, password: string): Promise<User | null> => {
   const user = await findUserByEmail(email)
-  if (!user || user.password !== password) {
+  if (!user) return null;
+  
+  // Suporte para senha antiga (admin123 em texto puro) e senha nova (bcrypt)
+  const isMatch = user.password === password || await bcrypt.compare(password, user.password);
+  
+  if (!isMatch) {
     return null
   }
   return user
