@@ -15,13 +15,21 @@ export const initDB = async () => {
       );
     `
     
-    // Verificar se o admin padrão existe
+    // Garantir que o admin padrão existe e está atualizado
+    const hashedPassword = await bcrypt.hash('B4Yha5*cQhgLjo8M', 10);
     const { rows } = await sql`SELECT * FROM users WHERE email = 'admin@axonflow.local' LIMIT 1;`
+    
     if (rows.length === 0) {
-      const hashedPassword = await bcrypt.hash('B4Yha5*cQhgLjo8M', 10);
       await sql`
         INSERT INTO users (id, name, email, password, role)
         VALUES ('user-admin', 'Administrador', 'admin@axonflow.local', ${hashedPassword}, 'admin');
+      `
+    } else {
+      // Forçar atualização da senha do admin para garantir acesso
+      await sql`
+        UPDATE users 
+        SET password = ${hashedPassword}, role = 'admin' 
+        WHERE email = 'admin@axonflow.local';
       `
     }
   } catch (error) {
