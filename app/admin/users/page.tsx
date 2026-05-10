@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sidebar } from "@/components/dashboard/sidebar";
+import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { Trash2, Edit2, X, Check, AlertCircle } from "lucide-react";
 
@@ -75,7 +75,7 @@ export default function UsersManagementPage() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans">
-      <Sidebar />
+      <DashboardSidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <DashboardHeader />
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
