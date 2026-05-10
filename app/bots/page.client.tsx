@@ -2,7 +2,7 @@
 
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { useAppStore } from "@/lib/store"
-import { Suspense, useState } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -60,16 +60,23 @@ import { toast } from "sonner"
 import { QRCodeSVG } from "qrcode.react"
 
 export default function BotsPage() {
-  const bots = useAppStore((state) => state.bots)
-  const addBot = useAppStore((state) => state.addBot)
-  const updateBot = useAppStore((state) => state.updateBot)
-  const deleteBot = useAppStore((state) => state.deleteBot)
-  const toggleBotStatus = useAppStore((state) => state.toggleBotStatus)
-  const searchTerm = useAppStore((state) => state.searchTerm)
-  const setSearchTerm = useAppStore((state) => state.setSearchTerm)
-  const statusFilter = useAppStore((state) => state.statusFilter)
-  const setStatusFilter = useAppStore((state) => state.setStatusFilter)
-  const getFilteredBots = useAppStore((state) => state.getFilteredBots)
+  const { 
+    bots, 
+    fetchBots, 
+    addBot, 
+    updateBot, 
+    deleteBot, 
+    searchTerm, 
+    setSearchTerm, 
+    statusFilter, 
+    setStatusFilter, 
+    getFilteredBots,
+    isLoading 
+  } = useAppStore()
+
+  useEffect(() => {
+    fetchBots()
+  }, [fetchBots])
 
   const searchParams = useSearchParams()
   const editId = searchParams.get("edit")
@@ -79,7 +86,6 @@ export default function BotsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [isQrOpen, setIsQrOpen] = useState(false)
-  const [activeBotId, setActiveBotId] = useState<string | null>(null)
   
   const [formData, setFormData] = useState({
     name: "",
@@ -89,14 +95,13 @@ export default function BotsPage() {
   })
 
   const filteredBots = getFilteredBots()
-  const botToEdit = editingBot ? bots.find(b => b.id === editingBot) : null
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!formData.name || !formData.phone) {
       toast.error("Preencha todos os campos obrigatórios")
       return
     }
-    addBot({
+    await addBot({
       name: formData.name,
       phone: formData.phone,
       description: formData.description,
@@ -107,12 +112,12 @@ export default function BotsPage() {
     toast.success("Bot criado com sucesso!")
   }
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingBot || !formData.name || !formData.phone) {
       toast.error("Preencha todos os campos obrigatórios")
       return
     }
-    updateBot(editingBot, {
+    await updateBot(editingBot, {
       name: formData.name,
       phone: formData.phone,
       description: formData.description,
@@ -135,20 +140,37 @@ export default function BotsPage() {
     }
   }
 
-  const pollQrCode = async (botId: string) => {
+  const handleConnect = async (botId: string) => {
+    setIsQrOpen(true)
+    setQrCode(null)
+    try {
+      const res = await fetch('/api/whatsapp/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ botId }),
+      })
+      const data = await res.json()
+      if (data.qr) {
+        setQrCode(data.qr)
+        pollQrCode(botId)
+      }
+    } catch (e) {
+      toast.error("Erro ao iniciar conexão")
+    }
+  }
+
+  const pollQrCode = (botId: string) => {
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/whatsapp/qr?botId=${botId}`)
         const data = await res.json()
-        if (data.qr) {
-          setQrCode(data.qr)
-        }
+        if (data.qr) setQrCode(data.qr)
         if (data.status === 'online') {
           setQrCode(null)
           setIsQrOpen(false)
           clearInterval(interval)
+          fetchBots()
           toast.success("WhatsApp conectado com sucesso!")
-          // Atualizar estado local se necessário
         }
       } catch (e) {
         console.error(e)
@@ -288,24 +310,22 @@ export default function BotsPage() {
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2 rounded-lg bg-chart-2/10">
-              <MessageSquare className="w-5 h-5 text-chart-2" />
+            <div className="p-2 rounded-lg bg-primary/10">
+              <MessageSquare className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">
-                {bots.reduce((acc, b) => acc + b.messages, 0).toLocaleString()}
-              </p>
-              <p className="text-sm text-muted-foreground">Mensagens hoje</p>
+              <p className="text-2xl font-bold">{bots.reduce((acc, b) => acc + (b.messages || 0), 0)}</p>
+              <p className="text-sm text-muted-foreground">Mensagens enviadas</p>
             </div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2 rounded-lg bg-chart-3/10">
-              <TrendingUp className="w-5 h-5 text-chart-3" />
+            <div className="p-2 rounded-lg bg-primary/10">
+              <TrendingUp className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">98.2%</p>
+              <p className="text-2xl font-bold">99.9%</p>
               <p className="text-sm text-muted-foreground">Uptime médio</p>
             </div>
           </CardContent>
@@ -313,136 +333,127 @@ export default function BotsPage() {
       </div>
 
       {/* Bots Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredBots.map((bot) => (
-          <Card 
-            key={bot.id} 
-            className={cn(
-              "bg-card border-border hover:border-primary/50 transition-colors",
-              bot.status === "online" && "border-l-4 border-l-primary"
-            )}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "w-12 h-12 rounded-full flex items-center justify-center text-lg font-semibold",
-                      bot.status === "online"
-                        ? "bg-primary/10 text-primary"
-                        : bot.status === "connecting"
-                        ? "bg-chart-3/10 text-chart-3"
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {bot.name.charAt(4)?.toUpperCase() || bot.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">{bot.name}</h3>
-                    <p className="text-sm text-muted-foreground">{bot.phone}</p>
-                  </div>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem className="gap-2" onClick={() => {
-                      if (bot.status === "offline") {
-                        useAppStore.getState().connectBot(bot.id)
-                        setActiveBotId(bot.id)
-                        setIsQrOpen(true)
-                        pollQrCode(bot.id)
-                        toast.info("Iniciando conexão...")
-                      } else {
-                        toggleBotStatus(bot.id)
-                        toast.success(`Bot ${bot.status === "online" ? "desativado" : "ativado"} com sucesso!`)
-                      }
-                    }}>
-                      <Power className="w-4 h-4" />
-                      {bot.status === "offline" ? "Conectar WhatsApp" : bot.status === "online" ? "Desativar" : "Ativar"}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="gap-2" onClick={() => {
-                      setActiveBotId(bot.id)
-                      setIsQrOpen(true)
-                      pollQrCode(bot.id)
-                    }}>
-                      <QrCode className="w-4 h-4" />
-                      QR Code
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="gap-2" onClick={() => openEditDialog(bot.id)}>
-                      <Settings className="w-4 h-4" />
-                      Configurar
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      className="gap-2 text-destructive"
-                      onClick={() => setDeleteId(bot.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Excluir
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {bot.description && (
-                <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
-                  {bot.description}
-                </p>
-              )}
-
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "border-0",
-                    bot.status === "online"
-                      ? "bg-primary/10 text-primary"
-                      : bot.status === "connecting"
-                      ? "bg-chart-3/10 text-chart-3"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {bot.status === "online"
-                    ? "Online"
-                    : bot.status === "connecting"
-                    ? "Conectando..."
-                    : "Offline"}
-                </Badge>
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="text-muted-foreground">
-                    <span className="font-medium text-foreground">{bot.messages.toLocaleString()}</span> msg
-                  </span>
-                  <span className="text-muted-foreground">
-                    <span className="font-medium text-foreground">{bot.uptime}</span> up
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        {filteredBots.length === 0 && (
-          <div className="col-span-full py-12 text-center">
-            <p className="text-muted-foreground">Nenhum bot encontrado</p>
-            <Button className="mt-4 gap-2" onClick={() => setIsCreateOpen(true)}>
-              <Plus className="w-4 h-4" />
-              Criar primeiro bot
-            </Button>
+      {isLoading ? (
+        <div className="py-20 text-center">Carregando bots...</div>
+      ) : filteredBots.length === 0 ? (
+        <div className="py-20 text-center border-2 border-dashed border-border rounded-xl">
+          <div className="p-4 bg-secondary w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Plus className="w-8 h-8 text-muted-foreground" />
           </div>
-        )}
-      </div>
+          <h3 className="text-lg font-medium">Nenhum bot encontrado</h3>
+          <p className="text-muted-foreground max-w-xs mx-auto mt-1">
+            Crie seu primeiro bot para começar a automatizar seu atendimento.
+          </p>
+          <Button variant="outline" className="mt-6" onClick={() => setIsCreateOpen(true)}>
+            Criar Bot
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredBots.map((bot) => (
+            <Card key={bot.id} className="bg-card border-border hover:border-primary/50 transition-colors group">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold",
+                      bot.status === "online" ? "bg-green-500/10 text-green-500" : "bg-secondary text-muted-foreground"
+                    )}>
+                      {bot.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg leading-none mb-1">{bot.name}</h3>
+                      <p className="text-sm text-muted-foreground">{bot.phone}</p>
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEditDialog(bot.id)}>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Configurações
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setDeleteId(bot.id)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Excluir Bot
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Status</span>
+                    <Badge variant={
+                      bot.status === "online" ? "default" : 
+                      bot.status === "connecting" ? "secondary" : "outline"
+                    } className={cn(
+                      bot.status === "online" && "bg-green-500/10 text-green-500 hover:bg-green-500/20 border-none",
+                      bot.status === "connecting" && "animate-pulse"
+                    )}>
+                      {bot.status === "online" ? "Online" : 
+                       bot.status === "connecting" ? "Conectando..." : "Offline"}
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="bg-secondary/50 p-3 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Mensagens</p>
+                      <p className="font-bold">{bot.messages || 0}</p>
+                    </div>
+                    <div className="bg-secondary/50 p-3 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Uptime</p>
+                      <p className="font-bold">{bot.uptime || "0%"}</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex gap-2">
+                    {bot.status === "offline" ? (
+                      <Button 
+                        className="flex-1 gap-2" 
+                        onClick={() => handleConnect(bot.id)}
+                      >
+                        <QrCode className="w-4 h-4" />
+                        Conectar
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 gap-2 text-destructive hover:text-destructive"
+                        onClick={() => handleConnect(bot.id)}
+                      >
+                        <Power className="w-4 h-4" />
+                        Desconectar
+                      </Button>
+                    )}
+                    <Button variant="secondary" size="icon" asChild>
+                      <a href={`/conversations?botId=${bot.id}`}>
+                        <MessageSquare className="w-4 h-4" />
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingBot} onOpenChange={() => setEditingBot(null)}>
+      <Dialog open={!!editingBot} onOpenChange={(open) => !open && setEditingBot(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar bot</DialogTitle>
             <DialogDescription>
-              Atualize as informações do bot {botToEdit?.name}.
+              Altere as informações do seu bot de WhatsApp.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -455,7 +466,7 @@ export default function BotsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-phone">Numero de telefone</Label>
+              <Label htmlFor="edit-phone">Número de telefone</Label>
               <Input
                 id="edit-phone"
                 value={formData.phone}
@@ -463,7 +474,7 @@ export default function BotsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-description">Descrição</Label>
+              <Label htmlFor="edit-description">Descrição (opcional)</Label>
               <Textarea
                 id="edit-description"
                 value={formData.description}
@@ -475,38 +486,33 @@ export default function BotsPage() {
             <Button variant="outline" onClick={() => setEditingBot(null)}>
               Cancelar
             </Button>
-            <Button onClick={handleUpdate}>Salvar</Button>
+            <Button onClick={handleUpdate}>Salvar alterações</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir bot?</AlertDialogTitle>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O bot será permanentemente excluído junto com todas as suas configurações.
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente o bot
+              e todas as sessões associadas a ele.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
+            <AlertDialogAction 
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (deleteId) {
-                  deleteBot(deleteId)
-                  toast.success("Bot excluído com sucesso!")
-                }
-                setDeleteId(null)
-              }}
+              onClick={() => deleteId && deleteBot(deleteId)}
             >
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </DashboardLayout>
-  </Suspense>
-)
+      </DashboardLayout>
+    </Suspense>
+  )
 }
