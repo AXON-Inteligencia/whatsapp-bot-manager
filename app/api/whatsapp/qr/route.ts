@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from "@upstash/redis";
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
-});
+import { redisRest } from '@/lib/redis';
+import { WhatsAppService } from '@/lib/whatsapp/service';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -15,11 +11,24 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const qr = await redis.get(`qr:${botId}`);
-    const status = await redis.get(`status:${botId}`) || 'offline';
+    // Obter QR code do Redis
+    const qr = await redisRest.get(`qr:${botId}`);
+    
+    // Obter status real do bot
+    const status = await WhatsAppService.getStatus(botId);
+    
+    // Obter timestamp de conexão
+    const connectedAt = await redisRest.get(`connected_at:${botId}`);
 
-    return NextResponse.json({ qr, status });
+    return NextResponse.json({
+      botId,
+      qr: qr || null,
+      status,
+      connectedAt: connectedAt || null,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error: any) {
+    console.error('Erro ao buscar QR code:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
