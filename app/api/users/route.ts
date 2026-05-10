@@ -4,12 +4,12 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
+const JWT_SECRET = process.env.JWT_SECRET || 'axon-inteligencia-secret-key-2024';
 
 async function isAdmin() {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
+    const token = cookieStore.get("axon-auth-token")?.value;
     if (!token) return false;
     
     const decoded: any = jwt.verify(token, JWT_SECRET);
