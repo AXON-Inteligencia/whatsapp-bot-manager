@@ -89,3 +89,4 @@ export const authenticateUser = async (email: string, password: string): Promise
   }
   return user
 }
+// Force redeploy after DB connection
