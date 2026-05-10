@@ -15,17 +15,17 @@ import {
   ChevronRight,
   Megaphone,
   UsersRound,
+  LogOut,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { LogOut } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Bots", href: "/bots", icon: Bot },
   { name: "Conversas", href: "/conversations", icon: MessageSquare },
   { name: "Contatos", href: "/contacts", icon: Users },
@@ -33,19 +33,30 @@ const navigation = [
   { name: "Grupos", href: "/groups", icon: UsersRound },
   { name: "Automações", href: "/automations", icon: Zap },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "Admin", href: "/admin", icon: ShieldCheck },
   { name: "Usuários", href: "/admin/users", icon: Users },
-
+]
 
 const bottomNav = [
   { name: "Configurações", href: "/settings", icon: Settings },
   { name: "Ajuda", href: "/help", icon: HelpCircle },
 ]
 
-export function DashboardSidebar() {
+export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    // Verifica se o usuário é admin através do localStorage ou cookie (opcional)
+    const auth = localStorage.getItem("whatsapp-admin-auth")
+    if (auth) {
+      const user = JSON.parse(auth)
+      setIsAdmin(user.role === "admin")
+    } else {
+      setIsAdmin(true) // Fallback para mostrar enquanto carrega se necessário
+    }
+  }, [])
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" })
@@ -57,47 +68,44 @@ export function DashboardSidebar() {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300",
-          collapsed ? "w-16" : "w-64"
+          "flex flex-col h-screen bg-white border-r border-slate-200 transition-all duration-300 z-30",
+          collapsed ? "w-20" : "w-72"
         )}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-4 h-16 border-b border-sidebar-border">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
-            <Bot className="w-5 h-5 text-primary-foreground" />
+        <div className="flex items-center gap-4 px-6 h-20 border-b border-slate-100">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-600 shadow-lg shadow-emerald-100">
+            <Bot className="w-6 h-6 text-white" />
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="font-semibold text-sidebar-foreground">AxonFlow</span>
-              <span className="text-xs text-muted-foreground">Automação Inteligente</span>
+              <span className="font-bold text-slate-900 text-lg tracking-tight">AxonFlow</span>
+              <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Inteligência</span>
             </div>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-          <div className="mb-2 px-2">
-            {!collapsed && (
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Menu
-              </span>
-            )}
-          </div>
+        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           {navigation.map((item) => {
             const isActive = pathname === item.href
+            
+            // Só mostra a aba Usuários se for admin
+            if (item.name === "Usuários" && !isAdmin) return null;
+
             const LinkContent = (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                  "flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 group",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                    ? "bg-emerald-50 text-emerald-700 shadow-sm"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                 )}
               >
-                <item.icon className={cn("w-5 h-5 flex-shrink-0", isActive && "text-primary")} />
-                {!collapsed && <span className="font-medium">{item.name}</span>}
+                <item.icon className={cn("w-5 h-5 flex-shrink-0 transition-colors", isActive ? "text-emerald-600" : "group-hover:text-slate-900")} />
+                {!collapsed && <span className="font-semibold text-sm">{item.name}</span>}
               </Link>
             )
 
@@ -105,7 +113,9 @@ export function DashboardSidebar() {
               return (
                 <Tooltip key={item.name}>
                   <TooltipTrigger asChild>{LinkContent}</TooltipTrigger>
-                  <TooltipContent side="right">{item.name}</TooltipContent>
+                  <TooltipContent side="right" className="bg-slate-900 text-white border-none rounded-lg px-3 py-1.5 text-xs font-bold">
+                    {item.name}
+                  </TooltipContent>
                 </Tooltip>
               )
             }
@@ -115,16 +125,20 @@ export function DashboardSidebar() {
         </nav>
 
         {/* Bottom Navigation */}
-        <div className="px-2 py-4 border-t border-sidebar-border space-y-1">
+        <div className="px-4 py-6 border-t border-slate-100 space-y-2">
           {bottomNav.map((item) => {
+            const isActive = pathname === item.href
             const LinkContent = (
               <Link
                 key={item.name}
                 href={item.href}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+                className={cn(
+                  "flex items-center gap-4 px-4 py-3 rounded-2xl text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all",
+                  isActive && "bg-slate-50 text-slate-900"
+                )}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
-                {!collapsed && <span className="font-medium">{item.name}</span>}
+                {!collapsed && <span className="font-semibold text-sm">{item.name}</span>}
               </Link>
             )
 
@@ -132,7 +146,9 @@ export function DashboardSidebar() {
               return (
                 <Tooltip key={item.name}>
                   <TooltipTrigger asChild>{LinkContent}</TooltipTrigger>
-                  <TooltipContent side="right">{item.name}</TooltipContent>
+                  <TooltipContent side="right" className="bg-slate-900 text-white border-none rounded-lg px-3 py-1.5 text-xs font-bold">
+                    {item.name}
+                  </TooltipContent>
                 </Tooltip>
               )
             }
@@ -140,36 +156,17 @@ export function DashboardSidebar() {
             return LinkContent
           })}
 
-          {/* Collapse Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-center mt-2"
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            {collapsed ? (
-              <ChevronRight className="w-4 h-4" />
-            ) : (
-              <>
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                <span>Recolher</span>
-              </>
-            )}
-          </Button>
-
           {/* Logout Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10",
-              collapsed ? "justify-center" : "px-3"
-            )}
+          <button
             onClick={handleLogout}
+            className={cn(
+              "w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-50 transition-all",
+              collapsed ? "justify-center" : ""
+            )}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span className="ml-3 font-medium">Sair</span>}
-          </Button>
+            {!collapsed && <span className="font-semibold text-sm">Sair</span>}
+          </button>
         </div>
       </aside>
     </TooltipProvider>
