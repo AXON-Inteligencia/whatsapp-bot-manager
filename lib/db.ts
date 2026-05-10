@@ -16,22 +16,28 @@ export const initDB = async () => {
     `
     
     // Garantir que o admin padrão existe e está atualizado
-    const hashedPassword = await bcrypt.hash('B4Yha5*cQhgLjo8M', 10);
+    // Senha simplificada para evitar erros de caracteres especiais no shell/transmissão
+    const adminPassword = process.env.ADMIN_PASSWORD || 'Axon@2026';
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    
+    console.log("Iniciando initDB...");
     const { rows } = await sql`SELECT * FROM users WHERE email = 'admin@axonflow.local' LIMIT 1;`
     
     if (rows.length === 0) {
+      console.log("Criando usuário admin padrão...");
       await sql`
         INSERT INTO users (id, name, email, password, role)
         VALUES ('user-admin', 'Administrador', 'admin@axonflow.local', ${hashedPassword}, 'admin');
       `
     } else {
-      // Forçar atualização da senha do admin para garantir acesso
+      console.log("Atualizando usuário admin padrão...");
       await sql`
         UPDATE users 
         SET password = ${hashedPassword}, role = 'admin' 
         WHERE email = 'admin@axonflow.local';
       `
     }
+    console.log("initDB concluído com sucesso.");
   } catch (error) {
     console.error("Erro ao inicializar banco de dados:", error)
   }
