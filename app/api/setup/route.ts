@@ -1,4 +1,4 @@
-import { NextResponse } from "next/navigation";
+import { NextResponse } from "next/server";
 import { sql } from "@vercel/postgres";
 import bcrypt from "bcryptjs";
 
@@ -10,39 +10,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "E-mail e senha são obrigatórios" }, { status: 400 });
     }
 
-    // Cria a tabela se não existir
+    // Cria a tabela se não existir (alinhado com lib/db.ts)
     await sql`
       CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        role TEXT NOT NULL
       );
     `;
 
-    // Verifica se já existe um usuário
-    const existingUser = await sql`SELECT * FROM users LIMIT 1`;
-    
     const hashedPassword = await bcrypt.hash(password, 10);
+    const normalizedEmail = email.trim().toLowerCase();
 
-    if (existingUser.rowCount > 0) {
-      // Atualiza o administrador existente
+    // Verifica se o admin padrão ou qualquer usuário existe
+    const { rows } = await sql`SELECT * FROM users LIMIT 1`;
+    
+    if (rows.length > 0) {
+      // Atualiza o primeiro usuário encontrado para ser o novo admin
       await sql`
         UPDATE users 
-        SET email = ${email}, password = ${hashedPassword} 
-        WHERE id = ${existingUser.rows[0].id}
+        SET email = ${normalizedEmail}, password = ${hashedPassword}, name = 'Administrador', role = 'admin'
+        WHERE id = ${rows[0].id}
       `;
     } else {
       // Cria o primeiro administrador
+      const id = `user-admin-${Date.now()}`;
       await sql`
-        INSERT INTO users (email, password) 
-        VALUES (${email}, ${hashedPassword})
+        INSERT INTO users (id, name, email, password, role) 
+        VALUES (${id}, 'Administrador', ${normalizedEmail}, ${hashedPassword}, 'admin')
       `;
     }
 
     return NextResponse.json({ message: "Administrador configurado com sucesso" });
   } catch (error: any) {
     console.error("Setup error:", error);
-    return NextResponse.json({ error: "Erro ao configurar banco de dados" }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao configurar banco de dados: " + error.message }, { status: 500 });
   }
 }
