@@ -11,21 +11,27 @@ export async function POST(request: Request) {
     }
 
     // Cria a tabela se não existir (alinhado com lib/db.ts)
-    await sql`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL
-      );
-    `;
+    // Usamos uma query separada para garantir a criação antes da consulta
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          role TEXT NOT NULL
+        );
+      `;
+    } catch (e) {
+      console.error("Erro ao criar tabela:", e);
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Verifica se o admin padrão ou qualquer usuário existe
-    const { rows } = await sql`SELECT * FROM users LIMIT 1`;
+    // Verifica se já existe algum usuário
+    const result = await sql`SELECT id FROM users LIMIT 1`;
+    const rows = result.rows || [];
     
     if (rows.length > 0) {
       // Atualiza o primeiro usuário encontrado para ser o novo admin
