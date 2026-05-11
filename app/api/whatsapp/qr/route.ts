@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redisRest } from '@/lib/redis';
-import { WhatsAppService } from '@/lib/whatsapp/service';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -13,10 +12,20 @@ export async function GET(req: NextRequest) {
   try {
     // Obter QR code do Redis
     const qr = await redisRest.get(`qr:${botId}`);
-    
-    // Obter status real do bot
-    const status = await WhatsAppService.getStatus(botId);
-    
+
+    // Obter status do bot diretamente do Redis
+    const rawStatus = await redisRest.get(`status:${botId}`);
+
+    // Normalizar status: 'connected' e 'online' são equivalentes
+    let status: string;
+    if (rawStatus === 'connected' || rawStatus === 'online') {
+      status = 'online';
+    } else if (rawStatus === 'connecting') {
+      status = 'connecting';
+    } else {
+      status = 'offline';
+    }
+
     // Obter timestamp de conexão
     const connectedAt = await redisRest.get(`connected_at:${botId}`);
 

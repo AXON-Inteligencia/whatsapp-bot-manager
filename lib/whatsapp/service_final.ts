@@ -113,7 +113,7 @@ export class WhatsAppService {
       } else if (connection === 'open') {
         console.log(`[WhatsAppService] Conexão ABERTA para ${botId}`);
         await redis.del(`qr:${botId}`);
-        await redis.set(`status:${botId}`, 'connected', { ex: 60 * 60 * 24 });
+        await redis.set(`status:${botId}`, 'online', { ex: 60 * 60 * 24 });
       }
     });
 

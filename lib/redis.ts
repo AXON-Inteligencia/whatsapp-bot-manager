@@ -1,25 +1,24 @@
 import { Redis } from '@upstash/redis';
 import IORedis from 'ioredis';
 
-// Cliente REST para Upstash (usado em API Routes)
+// Cliente REST para Upstash (usado em API Routes e Services)
 export const redisRest = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL || '',
   token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
 });
 
+// Alias 'redis' para compatibilidade com os arquivos de serviço WhatsApp
+// que importam { redis } de '../redis'
+export const redis = redisRest;
+
 // Cliente IORedis para BullMQ (conexão TCP/IP)
-// Extrai host, port e password da URL REST do Upstash
 let redisIO: IORedis | null = null;
 
 export function getRedisIO(): IORedis {
   if (redisIO) return redisIO;
 
-  const redisUrl = process.env.UPSTASH_REDIS_REST_URL || '';
-  
-  // Parse Upstash REST URL: https://user:password@host:port
-  // Para BullMQ, precisamos da conexão TCP, então usamos o endpoint IOREDIS_URL se disponível
   const ioRedisUrl = process.env.UPSTASH_REDIS_URL || process.env.REDIS_URL;
-  
+
   if (ioRedisUrl) {
     redisIO = new IORedis(ioRedisUrl);
   } else {

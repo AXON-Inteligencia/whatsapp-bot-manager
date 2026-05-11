@@ -11,8 +11,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'botId é obrigatório' }, { status: 400 });
     }
 
-    // Desconectar o bot
-    await WhatsAppService.disconnect(botId);
+    // Desconectar o bot (usando logout que é o método disponível no service)
+    await WhatsAppService.logout(botId);
+
+    // Garantir que o status seja atualizado para offline
+    await redisRest.set(`status:${botId}`, 'offline');
+    await redisRest.del(`qr:${botId}`);
 
     return NextResponse.json({
       message: 'Bot desconectado com sucesso',

@@ -150,9 +150,17 @@ export default function BotsPage() {
         body: JSON.stringify({ botId }),
       })
       const data = await res.json()
+      // Exibir QR se já veio na resposta
       if (data.qr) {
         setQrCode(data.qr)
+      }
+      // Sempre iniciar polling para obter/atualizar o QR Code
+      if (data.status !== 'online') {
         pollQrCode(botId)
+      } else {
+        // Bot já estava conectado
+        setIsQrOpen(false)
+        fetchBots()
       }
     } catch (e) {
       toast.error("Erro ao iniciar conexão")

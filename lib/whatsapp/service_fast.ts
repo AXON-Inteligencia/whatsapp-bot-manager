@@ -49,7 +49,7 @@ export class WhatsAppService {
           resolve(qr);
         }
         if (connection === 'open') {
-          await redis.set(`status:${botId}`, 'connected');
+          await redis.set(`status:${botId}`, 'online');
           await redis.del(`qr:${botId}`);
         }
       });
