@@ -8,8 +8,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'AxonFlow — Automação Inteligente',
-  description: 'Plataforma de automação de bots WhatsApp da AXON Inteligência',
+  title: 'WhatsApp Bot Manager',
+  description: 'Dashboard para gerenciamento de bots de WhatsApp',
   generator: 'v0.app',
   icons: {
     icon: [

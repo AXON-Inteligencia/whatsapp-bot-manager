@@ -2,7 +2,7 @@
 
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { useAppStore } from "@/lib/store"
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -52,13 +52,10 @@ import {
   Trash2,
   Edit,
   Download,
-  Upload,
-  CheckCircle2,
-  AlertCircle
+  Upload
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import Papa from "papaparse"
 
 function formatTimeAgo(date: Date): string {
   const now = new Date()
@@ -78,15 +75,11 @@ export default function ContactsPage() {
   const addContact = useAppStore((state) => state.addContact)
   const updateContact = useAppStore((state) => state.updateContact)
   const deleteContact = useAppStore((state) => state.deleteContact)
-  const importContacts = useAppStore((state) => state.importContacts)
 
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [importPreview, setImportPreview] = useState<any[]>([])
-  const [isImportOpen, setIsImportOpen] = useState(false)
-  const importFileRef = useRef<HTMLInputElement>(null)
   
   const [formData, setFormData] = useState({
     name: "",
@@ -148,126 +141,6 @@ export default function ContactsPage() {
     }
   }
 
-  // ─── IMPORTAR CSV ──────────────────────────────────────────────
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (result) => {
-        const rows = result.data as any[]
-        if (rows.length === 0) {
-          toast.error("Arquivo CSV vazio ou sem dados válidos")
-          return
-        }
-
-        const parsed = rows.map((row) => ({
-          name: row.name || row.nome || row.Name || row.Nome || "",
-          phone: row.phone || row.telefone || row.Phone || row.Telefone || row.numero || row.Numero || "",
-          email: row.email || row.Email || "",
-          tags: row.tags || row.Tags || "",
-        })).filter((r) => r.phone)
-
-        if (parsed.length === 0) {
-          toast.error("Nenhum número de telefone encontrado. Certifique-se que o CSV tem uma coluna 'phone' ou 'telefone'.")
-          return
-        }
-
-        setImportPreview(parsed)
-        setIsImportOpen(true)
-      },
-      error: () => toast.error("Erro ao ler o arquivo CSV"),
-    })
-
-    e.target.value = ""
-  }
-
-  const confirmImport = () => {
-    let added = 0
-    for (const row of importPreview) {
-      const exists = contacts.find(c => c.phone === row.phone)
-      if (!exists) {
-        addContact({
-          name: row.name || row.phone,
-          phone: row.phone,
-          email: row.email || undefined,
-          tags: row.tags ? row.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
-        })
-        added++
-      }
-    }
-    setIsImportOpen(false)
-    setImportPreview([])
-    toast.success(`${added} contatos importados com sucesso! (${importPreview.length - added} duplicados ignorados)`)
-  }
-
-  // ─── EXPORTAR CSV ──────────────────────────────────────────────
-  const handleExport = () => {
-    if (contacts.length === 0) {
-      toast.error("Nenhum contato para exportar")
-      return
-    }
-
-    const data = contacts.map((c) => ({
-      name: c.name,
-      phone: c.phone,
-      email: c.email || "",
-      tags: c.tags.join(", "),
-      totalMessages: c.totalMessages,
-      lastContact: c.lastContact instanceof Date 
-        ? c.lastContact.toLocaleDateString("pt-BR")
-        : new Date(c.lastContact).toLocaleDateString("pt-BR"),
-    }))
-
-    const csv = Papa.unparse(data, {
-      columns: ["name", "phone", "email", "tags", "totalMessages", "lastContact"],
-    })
-
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `contatos_${new Date().toISOString().split("T")[0]}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
-    toast.success(`${contacts.length} contatos exportados!`)
-  }
-
-  // ─── EXPORTAR XLSX (via CSV com BOM para Excel) ────────────────
-  const handleExportExcel = () => {
-    if (contacts.length === 0) {
-      toast.error("Nenhum contato para exportar")
-      return
-    }
-
-    const headers = ["Nome", "Telefone", "Email", "Tags", "Total Mensagens", "Último Contato"]
-    const rows = contacts.map((c) => [
-      c.name,
-      c.phone,
-      c.email || "",
-      c.tags.join(", "),
-      c.totalMessages,
-      c.lastContact instanceof Date 
-        ? c.lastContact.toLocaleDateString("pt-BR")
-        : new Date(c.lastContact).toLocaleDateString("pt-BR"),
-    ])
-
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-      .join("\n")
-
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `contatos_${new Date().toISOString().split("T")[0]}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
-    toast.success(`${contacts.length} contatos exportados para Excel!`)
-  }
-
   return (
     <DashboardLayout title="Contatos" description="Gerencie sua lista de contatos">
       {/* Actions Bar */}
@@ -282,44 +155,15 @@ export default function ContactsPage() {
           />
         </div>
         
-        <div className="flex gap-2 flex-wrap">
-          {/* Botão Importar */}
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => importFileRef.current?.click()}
-          >
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2">
             <Upload className="w-4 h-4" />
-            Importar CSV
+            Importar
           </Button>
-          <input
-            ref={importFileRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={handleImportFile}
-          />
-
-          {/* Botão Exportar */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <Download className="w-4 h-4" />
-                Exportar
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleExport} className="gap-2">
-                <Download className="w-4 h-4" />
-                Exportar como CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportExcel} className="gap-2">
-                <Download className="w-4 h-4" />
-                Exportar para Excel
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
+          <Button variant="outline" className="gap-2">
+            <Download className="w-4 h-4" />
+            Exportar
+          </Button>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -345,7 +189,7 @@ export default function ContactsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Telefone *</Label>
+                  <Label htmlFor="phone">Telefone</Label>
                   <Input
                     id="phone"
                     placeholder="+55 11 99999-0000"
@@ -449,7 +293,7 @@ export default function ContactsPage() {
                         {contact.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
                       </div>
                       <div>
-                        <p className="font-medium">{contact.name}</p>
+                        <p className="font-medium text-foreground">{contact.name}</p>
                         <p className="text-sm text-muted-foreground md:hidden">{contact.phone}</p>
                       </div>
                     </div>
@@ -478,7 +322,7 @@ export default function ContactsPage() {
                     {contact.totalMessages.toLocaleString()}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-muted-foreground">
-                    {formatTimeAgo(contact.lastContact instanceof Date ? contact.lastContact : new Date(contact.lastContact))}
+                    {formatTimeAgo(contact.lastContact)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -573,73 +417,6 @@ export default function ContactsPage() {
               Cancelar
             </Button>
             <Button onClick={handleUpdate}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Import Preview Dialog */}
-      <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5" />
-              Confirmar Importação
-            </DialogTitle>
-            <DialogDescription>
-              {importPreview.length} contatos encontrados no arquivo. Revise antes de importar.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-64 overflow-y-auto border border-border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border">
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Tags</TableHead>
-                  <TableHead className="w-8"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {importPreview.slice(0, 20).map((row, i) => {
-                  const duplicate = contacts.find(c => c.phone === row.phone)
-                  return (
-                    <TableRow key={i} className={cn("border-border", duplicate && "opacity-50")}>
-                      <TableCell className="text-sm">{row.name || "-"}</TableCell>
-                      <TableCell className="text-sm font-mono">{row.phone}</TableCell>
-                      <TableCell className="text-sm">{row.email || "-"}</TableCell>
-                      <TableCell className="text-sm">{row.tags || "-"}</TableCell>
-                      <TableCell>
-                        {duplicate ? (
-                          <AlertCircle className="w-4 h-4 text-yellow-500" title="Duplicado" />
-                        ) : (
-                          <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-            {importPreview.length > 20 && (
-              <p className="text-xs text-muted-foreground text-center py-2">
-                ... e mais {importPreview.length - 20} contatos
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="w-4 h-4 text-green-500" />
-            <span>Novos contatos</span>
-            <AlertCircle className="w-4 h-4 text-yellow-500 ml-3" />
-            <span>Duplicados (serão ignorados)</span>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsImportOpen(false); setImportPreview([]) }}>
-              Cancelar
-            </Button>
-            <Button onClick={confirmImport}>
-              Importar {importPreview.filter(r => !contacts.find(c => c.phone === r.phone)).length} contatos
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

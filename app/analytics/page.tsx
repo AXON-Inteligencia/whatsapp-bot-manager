@@ -301,17 +301,19 @@ export default function AnalyticsPage() {
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={botsPerformance} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#6D6D6D" horizontal={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
                   <XAxis 
                     type="number" 
-                    tick={{ fill: "#00FFFF", fontSize: 12 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis 
                     type="category" 
                     dataKey="name" 
-                    tick={{ fill: "#00FFFF", fontSize: 12 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
                     tickLine={false}
                     axisLine={false}
                     width={100}
@@ -350,15 +352,17 @@ export default function AnalyticsPage() {
                       <stop offset="95%" stopColor="hsl(45, 90%, 55%)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#6D6D6D" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis 
                     dataKey="hora" 
-                    tick={{ fill: "#FF00FF", fontSize: 12 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis 
-                    tick={{ fill: "#FF00FF", fontSize: 12 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
                     tickLine={false}
                     axisLine={false}
                   />
