@@ -3,7 +3,12 @@ import makeWASocket, {
   useMultiFileAuthState, 
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
-  AuthenticationState
+  AuthenticationState,
+  AuthenticationCreds,
+  SignalDataTypeMap,
+  initAuthCreds,
+  BufferJSON,
+  proto
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import fs from 'fs';
@@ -16,6 +21,67 @@ const SESSIONS_DIR = '/tmp/sessions';
 
 if (!fs.existsSync(SESSIONS_DIR)) {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+}
+
+/**
+ * Implementação personalizada para salvar o estado da autenticação no Redis.
+ * Isso é necessário porque a Vercel (Serverless) não persiste arquivos locais.
+ */
+async function useRedisAuthState(botId: string) {
+  const key = `session:${botId}`;
+  
+  // Tentar carregar as credenciais do Redis
+  let creds: AuthenticationCreds;
+  const savedCreds = await redis.get(`${key}:creds`);
+  
+  if (savedCreds) {
+    console.log(`[WhatsAppService] Carregando credenciais do Redis para o bot ${botId}`);
+    creds = typeof savedCreds === 'string' ? JSON.parse(savedCreds, BufferJSON.reviver) : savedCreds;
+  } else {
+    console.log(`[WhatsAppService] Criando novas credenciais para o bot ${botId}`);
+    creds = initAuthCreds();
+  }
+
+  return {
+    state: {
+      creds,
+      keys: {
+        get: async (type: keyof SignalDataTypeMap, ids: string[]) => {
+          const data: { [id: string]: any } = {};
+          await Promise.all(
+            ids.map(async (id) => {
+              let value = await redis.get(`${key}:${type}:${id}`);
+              if (value) {
+                if (typeof value === 'string') {
+                  value = JSON.parse(value, BufferJSON.reviver);
+                }
+                data[id] = value;
+              }
+            })
+          );
+          return data;
+        },
+        set: async (data: any) => {
+          const tasks: Promise<any>[] = [];
+          for (const category in data) {
+            for (const id in data[category]) {
+              const value = data[category][id];
+              const sKey = `${key}:${category}:${id}`;
+              if (value) {
+                tasks.push(redis.set(sKey, JSON.stringify(value, BufferJSON.replacer), { ex: 60 * 60 * 24 * 30 }));
+              } else {
+                tasks.push(redis.del(sKey));
+              }
+            }
+          }
+          await Promise.all(tasks);
+        },
+      },
+    },
+    saveCreds: async () => {
+      await redis.set(`${key}:creds`, JSON.stringify(creds, BufferJSON.replacer), { ex: 60 * 60 * 24 * 30 });
+    },
+  };
 }
 
 export class WhatsAppService {
@@ -37,18 +103,8 @@ export class WhatsAppService {
       this.instances.delete(botId);
     }
 
-    const authPath = path.join(SESSIONS_DIR, botId);
-    
-    // Sincronizar credenciais do Redis para o sistema de arquivos local
-    const savedCreds = await redis.get(`creds:${botId}`);
-    if (!savedCreds) {
-      console.log(`[WhatsAppService] Nenhuma credencial no Redis para o bot ${botId}. Limpando sessão local.`);
-      if (fs.existsSync(authPath)) {
-        fs.rmSync(authPath, { recursive: true, force: true });
-      }
-    }
-
-    const { state, saveCreds } = await useMultiFileAuthState(authPath);
+    // Usar o Redis para persistência em vez do sistema de arquivos local
+    const { state, saveCreds } = await useRedisAuthState(botId);
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -60,15 +116,15 @@ export class WhatsAppService {
       },
       logger,
       browser: ['AxonFlow', 'Chrome', '1.0.0'],
+      // Adicionar configurações de retry para melhor estabilidade em serverless
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 0,
+      keepAliveIntervalMs: 10000,
     });
 
     this.instances.set(botId, sock);
 
-    sock.ev.on('creds.update', async () => {
-      await saveCreds();
-      // Persistir credenciais no Redis para persistência serverless
-      await redis.set(`creds:${botId}`, JSON.stringify(state.creds), { ex: 60 * 60 * 24 * 30 }); // 30 dias
-    });
+    sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
@@ -79,20 +135,25 @@ export class WhatsAppService {
       }
 
       if (connection === 'close') {
-        const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-        console.log(`[WhatsAppService] Conexão fechada para o bot ${botId}. Motivo:`, lastDisconnect?.error, 'Reconectando:', shouldReconnect);
+        const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        
+        console.log(`[WhatsAppService] Conexão fechada para o bot ${botId}. Código: ${statusCode}. Reconectando: ${shouldReconnect}`);
         
         await redis.del(`qr:${botId}`);
         this.instances.delete(botId);
 
         if (shouldReconnect) {
-          this.connect(botId);
+          // Pequeno atraso antes de reconectar para evitar loop infinito em caso de erro crítico
+          setTimeout(() => this.connect(botId), 3000);
         } else {
-          console.log(`[WhatsAppService] Bot ${botId} desconectado permanentemente. Limpando dados.`);
-          await redis.del(`creds:${botId}`);
-          if (fs.existsSync(authPath)) {
-            fs.rmSync(authPath, { recursive: true, force: true });
+          console.log(`[WhatsAppService] Bot ${botId} desconectado permanentemente (Logged Out). Limpando dados do Redis.`);
+          // Limpar todas as chaves da sessão no Redis
+          const keys = await redis.keys(`session:${botId}:*`);
+          if (keys.length > 0) {
+            await Promise.all(keys.map(k => redis.del(k)));
           }
+          await redis.del(`status:${botId}`);
         }
       } else if (connection === 'open') {
         console.log(`[WhatsAppService] Conexão aberta com sucesso para o bot ${botId}`);
@@ -116,14 +177,20 @@ export class WhatsAppService {
   static async logout(botId: string) {
     const sock = this.instances.get(botId);
     if (sock) {
-      await sock.logout();
+      try {
+        await sock.logout();
+      } catch (e) {
+        console.error(`[WhatsAppService] Erro durante logout do socket:`, e);
+      }
       this.instances.delete(botId);
     }
-    await redis.del(`creds:${botId}`);
-    await redis.del(`status:${botId}`);
-    const authPath = path.join(SESSIONS_DIR, botId);
-    if (fs.existsSync(authPath)) {
-      fs.rmSync(authPath, { recursive: true, force: true });
+    
+    // Limpar dados do Redis
+    const keys = await redis.keys(`session:${botId}:*`);
+    if (keys.length > 0) {
+      await Promise.all(keys.map(k => redis.del(k)));
     }
+    await redis.del(`status:${botId}`);
+    await redis.del(`qr:${botId}`);
   }
 }
