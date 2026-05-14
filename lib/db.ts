@@ -5,18 +5,20 @@ import bcrypt from "bcryptjs"
 // Função para inicializar o banco de dados se necessário
 export const initDB = async () => {
   try {
+    // CORREÇÃO: Usar SERIAL para o ID para garantir autoincremento se a tabela for criada do zero
+    // E garantir que a coluna ID seja compatível com o que o banco espera.
+    // Como o Postgres da Vercel é usado, SERIAL é o padrão para autoincremento.
     await sql`
       CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role TEXT NOT NULL
       );
-    `
-    
+    `;
+
     // Garantir que o admin padrão existe e está atualizado
-    // Senha simplificada para evitar erros de caracteres especiais no shell/transmissão
     const adminPassword = process.env.ADMIN_PASSWORD || 'Axon@2026';
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
     
@@ -26,16 +28,16 @@ export const initDB = async () => {
     if (rows.length === 0) {
       console.log("Criando usuário admin padrão...");
       await sql`
-        INSERT INTO users (id, name, email, password, role)
-        VALUES ('user-admin', 'Administrador', 'admin@axonflow.local', ${hashedPassword}, 'admin');
-      `
+        INSERT INTO users (name, email, password, role)
+        VALUES ('Administrador', 'admin@axonflow.local', ${hashedPassword}, 'admin');
+      `;
     } else {
       console.log("Atualizando usuário admin padrão...");
       await sql`
         UPDATE users 
         SET password = ${hashedPassword}, role = 'admin' 
         WHERE email = 'admin@axonflow.local';
-      `
+      `;
     }
     console.log("initDB concluído com sucesso.");
   } catch (error) {
@@ -47,7 +49,7 @@ const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
 export const getUsers = async (): Promise<User[]> => {
   try {
-    const { rows } = await sql`SELECT id, name, email, role FROM users;`
+    const { rows } = await sql`SELECT id, name, email, role FROM users ORDER BY id DESC;`
     return rows as User[]
   } catch (error) {
     console.error("Erro ao buscar usuários:", error)
@@ -66,33 +68,30 @@ export const findUserByEmail = async (email: string): Promise<User | undefined> 
   }
 }
 
-export const addUser = async (userData: Omit<User, "id">): Promise<User> => {
-  const email = normalizeEmail(userData.email)
-  const id = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-  const hashedPassword = await bcrypt.hash(userData.password, 10);
-
+export const addUser = async (userData: Omit<User, "id">): Promise<User | undefined> => {
   try {
-    await sql`
-      INSERT INTO users (id, name, email, password, role)
-      VALUES (${id}, ${userData.name}, ${email}, ${hashedPassword}, ${userData.role});
+    const { name, email, password, role } = userData
+    const hashedPassword = await bcrypt.hash(password, 10)
+    
+    // CORREÇÃO: Removido o ID da inserção para usar o autoincremento do banco
+    const { rows } = await sql`
+      INSERT INTO users (name, email, password, role)
+      VALUES (${name}, ${email}, ${hashedPassword}, ${role})
+      RETURNING id, name, email, role;
     `
-    return { id, ...userData, email, password: hashedPassword }
+    return rows[0] as User
   } catch (error) {
     console.error("Erro ao adicionar usuário:", error)
-    throw new Error("Erro ao cadastrar usuário ou email já existe")
+    return undefined
   }
 }
 
-export const authenticateUser = async (email: string, password: string): Promise<User | null> => {
-  const user = await findUserByEmail(email)
-  if (!user) return null;
-  
-  // Suporte para senha antiga (admin123 em texto puro) e senha nova (bcrypt)
-  const isMatch = user.password === password || await bcrypt.compare(password, user.password);
-  
-  if (!isMatch) {
-    return null
+export const deleteUser = async (id: string): Promise<boolean> => {
+  try {
+    await sql`DELETE FROM users WHERE id = ${id};`
+    return true
+  } catch (error) {
+    console.error("Erro ao deletar usuário:", error)
+    return false
   }
-  return user
 }
-// Force redeploy after DB connection
