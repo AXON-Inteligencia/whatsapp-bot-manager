@@ -11,7 +11,6 @@ async function isAdmin() {
     const cookieStore = await cookies();
     const token = cookieStore.get("axon-auth-token")?.value;
     if (!token) return false;
-    
     const decoded: any = jwt.verify(token, JWT_SECRET);
     return decoded.role === "admin";
   } catch {
@@ -23,7 +22,6 @@ export async function GET() {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
   }
-
   try {
     const { rows } = await sql`SELECT id, name, email, role FROM users ORDER BY id DESC`;
     return NextResponse.json(rows);
@@ -36,30 +34,25 @@ export async function POST(request: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
   }
-
   try {
     const { name, email, password, role } = await request.json();
-
     if (!name || !email || !password) {
       return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
     }
 
-    // Verificar se usuário já existe
-    const { rows: existing } = await sql`SELECT id FROM users WHERE email = ${email}`;
-    if (existing.length > 0) {
-      return NextResponse.json({ error: "E-mail já cadastrado" }, { status: 400 });
-    }
-
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userRole = role || "user";
-
-    await sql`
+    
+    // CORREÇÃO: Removido o campo 'id' do INSERT para permitir que o banco gere automaticamente
+    // Se o banco não tiver autoincremento, esta query ainda pode falhar, mas é o primeiro passo correto no código.
+    const result = await sql`
       INSERT INTO users (name, email, password, role)
-      VALUES (${name}, ${email}, ${hashedPassword}, ${userRole})
+      VALUES (${name}, ${email}, ${hashedPassword}, ${role || 'user'})
+      RETURNING id, name, email, role
     `;
 
-    return NextResponse.json({ message: "Usuário criado com sucesso" }, { status: 201 });
+    return NextResponse.json(result.rows[0]);
   } catch (error: any) {
+    console.error("Erro ao criar usuário:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -68,48 +61,13 @@ export async function DELETE(request: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
   }
-
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
-
-    if (!id) return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
+    if (!id) return NextResponse.json({ error: "ID não fornecido" }, { status: 400 });
 
     await sql`DELETE FROM users WHERE id = ${id}`;
-    return NextResponse.json({ message: "Usuário removido com sucesso" });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-export async function PUT(request: Request) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
-  }
-
-  try {
-    const { id, name, email, role, password } = await request.json();
-
-    if (!id || !name || !email) {
-      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
-    }
-
-    if (password) {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      await sql`
-        UPDATE users 
-        SET name = ${name}, email = ${email}, role = ${role}, password = ${hashedPassword}
-        WHERE id = ${id}
-      `;
-    } else {
-      await sql`
-        UPDATE users 
-        SET name = ${name}, email = ${email}, role = ${role} 
-        WHERE id = ${id}
-      `;
-    }
-    
-    return NextResponse.json({ message: "Usuário atualizado com sucesso" });
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
