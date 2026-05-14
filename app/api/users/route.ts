@@ -1,74 +1,90 @@
-import { NextResponse } from "next/server";
-import { sql } from "@vercel/postgres";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
+import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import jwt from "jsonwebtoken"
+import { addUser, deleteUser, getUsers, initDB } from "@/lib/db"
 
-const JWT_SECRET = process.env.JWT_SECRET || 'axon-inteligencia-secret-key-2024';
+const JWT_SECRET = process.env.JWT_SECRET || "axon-inteligencia-secret-key-2024"
 
 async function isAdmin() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("axon-auth-token")?.value;
-    if (!token) return false;
-    const decoded: any = jwt.verify(token, JWT_SECRET);
-    return decoded.role === "admin";
+    const cookieStore = await cookies()
+    const token = cookieStore.get("axon-auth-token")?.value
+    if (!token) return false
+
+    const decoded: any = jwt.verify(token, JWT_SECRET)
+    return decoded.role === "admin"
   } catch {
-    return false;
+    return false
   }
 }
 
 export async function GET() {
   if (!(await isAdmin())) {
-    return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    return NextResponse.json({ error: "Acesso negado" }, { status: 403 })
   }
+
   try {
-    const { rows } = await sql`SELECT id, name, email, role FROM users ORDER BY id DESC`;
-    return NextResponse.json(rows);
+    await initDB()
+    const users = await getUsers()
+    return NextResponse.json(users)
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   if (!(await isAdmin())) {
-    return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    return NextResponse.json({ error: "Acesso negado" }, { status: 403 })
   }
+
   try {
-    const { name, email, password, role } = await request.json();
+    await initDB()
+    const { name, email, password, role } = await request.json()
+
     if (!name || !email || !password) {
-      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
+      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // CORREÇÃO: Removido o campo 'id' do INSERT para permitir que o banco gere automaticamente
-    // Se o banco não tiver autoincremento, esta query ainda pode falhar, mas é o primeiro passo correto no código.
-    const result = await sql`
-      INSERT INTO users (name, email, password, role)
-      VALUES (${name}, ${email}, ${hashedPassword}, ${role || 'user'})
-      RETURNING id, name, email, role
-    `;
+    const createdUser = await addUser({
+      name,
+      email,
+      password,
+      role: role === "admin" ? "admin" : "user",
+    })
 
-    return NextResponse.json(result.rows[0]);
+    if (!createdUser) {
+      return NextResponse.json({ error: "Erro ao criar usuário ou email já existe" }, { status: 500 })
+    }
+
+    const { password: _, ...safeUser } = createdUser
+    return NextResponse.json(safeUser)
   } catch (error: any) {
-    console.error("Erro ao criar usuário:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Erro ao criar usuário:", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
 export async function DELETE(request: Request) {
   if (!(await isAdmin())) {
-    return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+    return NextResponse.json({ error: "Acesso negado" }, { status: 403 })
   }
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-    if (!id) return NextResponse.json({ error: "ID não fornecido" }, { status: 400 });
 
-    await sql`DELETE FROM users WHERE id = ${id}`;
-    return NextResponse.json({ success: true });
+  try {
+    await initDB()
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json({ error: "ID não fornecido" }, { status: 400 })
+    }
+
+    const deleted = await deleteUser(id)
+    if (!deleted) {
+      return NextResponse.json({ error: "Erro ao deletar usuário" }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
