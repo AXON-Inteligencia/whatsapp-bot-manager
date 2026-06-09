@@ -176,7 +176,7 @@ export default function AutomationsPage() {
               <Input
                 id="apiKey"
                 type="password"
-                placeholder="AIzaSy..."
+                placeholder="AQ. ou AIzaSy..."
                 value={formData.apiKey}
                 onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
                 className="font-mono text-sm"
