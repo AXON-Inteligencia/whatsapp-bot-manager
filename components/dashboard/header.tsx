@@ -72,11 +72,20 @@ export function DashboardHeader() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Perfil</DropdownMenuItem>
-            <DropdownMenuItem>Configurações</DropdownMenuItem>
-            <DropdownMenuItem>Faturamento</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              const url = window.prompt("Cole a URL da sua nova foto de perfil do painel:")
+              if (url) {
+                const img = document.querySelector('.h-9.w-9 img') as HTMLImageElement
+                if (img) img.src = url
+              }
+            }}>
+              Alterar Minha Foto
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => alert("Em breve: Tela de Perfil")}>Perfil</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => alert("Em breve: Configurações do Painel")}>Configurações</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => alert("Em breve: Módulo de Faturamento")}>Faturamento</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">Sair</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={() => window.location.href = "/"}>Sair</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
