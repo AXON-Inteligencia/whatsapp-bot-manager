@@ -287,6 +287,29 @@ SUA RESPOSTA:`;
 
         await sock.sendPresenceUpdate('paused', remoteJid);
         await sock.sendMessage(remoteJid, { text: responseText });
+        
+        // SALVAR A RESPOSTA DA IA NO REDIS IMEDIATAMENTE
+        try {
+          const convId = `${botId}:${contactPhone}`;
+          const convKey = `axon:conversations:${convId}`;
+          let conv: any = await redis.get(convKey);
+          if (conv) {
+            conv.messages.push({
+              id: Math.random().toString(36).substr(2, 9),
+              content: responseText,
+              sender: 'bot',
+              time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+              timestamp: new Date().toISOString()
+            });
+            conv.lastMessage = responseText;
+            conv.timestamp = new Date().toISOString();
+            if (conv.messages.length > 50) conv.messages = conv.messages.slice(-50);
+            await redis.set(convKey, conv);
+          }
+        } catch (e) {
+          console.error('[WhatsAppService] Erro ao salvar resposta da IA no Redis:', e);
+        }
+        
       } catch (err: any) {
         console.error(`[WhatsAppService] Erro Crítico na Inteligência Artificial:`, err?.message || err);
         if (remoteJid) await sock.sendPresenceUpdate('paused', remoteJid).catch(() => {});

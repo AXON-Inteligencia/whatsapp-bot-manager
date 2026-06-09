@@ -105,8 +105,20 @@ export default function ConversationsPage() {
       return c;
     }), false);
 
-    // Chamar API para enviar via WhatsApp (você pode implementar a rota POST /api/conversations/send)
-    // await fetch('/api/conversations/send', { method: 'POST', body: JSON.stringify({ botId: selectedConv.botId, to: selectedConv.contactPhone, text: tempMessage }) });
+    // Chamar API para enviar via WhatsApp
+    try {
+      await fetch('/api/conversations/send', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          botId: selectedConv.botId, 
+          to: selectedConv.contactPhone, 
+          text: tempMessage 
+        }) 
+      });
+    } catch (e) {
+      console.error('Falha ao enviar mensagem', e);
+    }
   }
 
   return (
