@@ -2,7 +2,8 @@
 
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { useAppStore } from "@/lib/store"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
+import useSWR from "swr"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,7 +26,11 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-function formatTimeAgo(date: Date): string {
+const fetcher = (url: string) => fetch(url).then(r => r.json());
+
+function formatTimeAgo(dateStr: string): string {
+  if (!dateStr) return "Agora";
+  const date = new Date(dateStr);
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
@@ -38,41 +43,74 @@ function formatTimeAgo(date: Date): string {
   return `${diffDays}d`
 }
 
-// Mock messages for selected conversation
-const mockMessages = [
-  { id: 1, content: "Ola! Gostaria de saber mais sobre os planos disponiveis", sender: "contact", time: "10:30" },
-  { id: 2, content: "Ola! Claro, temos varios planos que podem atender suas necessidades. Qual o seu objetivo principal?", sender: "bot", time: "10:31" },
-  { id: 3, content: "Preciso de um plano para minha empresa pequena, com ate 10 funcionarios", sender: "contact", time: "10:33" },
-  { id: 4, content: "Perfeito! Para empresas desse porte, recomendo nosso Plano Business. Inclui ate 15 usuarios, suporte prioritario e integracao com sistemas externos.", sender: "bot", time: "10:33" },
-  { id: 5, content: "Qual o valor mensal?", sender: "contact", time: "10:35" },
-]
-
 export default function ConversationsPage() {
-  const conversations = useAppStore((state) => state.conversations)
   const bots = useAppStore((state) => state.bots)
-  const markAsRead = useAppStore((state) => state.markConversationAsRead)
   
+  // SWR para fazer o Polling Automático (Atualiza a cada 3 segundos)
+  const { data: realConversations, mutate } = useSWR('/api/conversations', fetcher, { 
+    refreshInterval: 3000,
+    fallbackData: []
+  });
+
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [botFilter, setBotFilter] = useState<string>("all")
   const [messageInput, setMessageInput] = useState("")
+  
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  const filteredConversations = conversations.filter((conv) => {
-    const matchesSearch = conv.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         conv.lastMessage.toLowerCase().includes(searchTerm.toLowerCase())
+  // Rolagem automática para baixo quando chega mensagem nova
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [realConversations, selectedConversation]);
+
+  const conversations = realConversations || [];
+
+  const filteredConversations = conversations.filter((conv: any) => {
+    const matchesSearch = conv.contactName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         conv.lastMessage?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesBot = botFilter === "all" || conv.botId === botFilter
     return matchesSearch && matchesBot
-  }).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+  });
 
-  const selectedConv = conversations.find(c => c.id === selectedConversation)
+  const selectedConv = conversations.find((c: any) => c.id === selectedConversation)
 
   const handleSelectConversation = (id: string) => {
     setSelectedConversation(id)
-    markAsRead(id)
+    // Aqui você também pode chamar uma API de Mark As Read para zerar conv.unreadCount
+  }
+
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || !selectedConv) return;
+    
+    const tempMessage = messageInput;
+    setMessageInput("");
+
+    // Otimista: adiciona na tela antes de chegar no servidor
+    mutate(conversations.map((c: any) => {
+      if (c.id === selectedConv.id) {
+        return {
+          ...c,
+          messages: [...c.messages, {
+            id: Math.random().toString(),
+            content: tempMessage,
+            sender: 'bot',
+            time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: new Date().toISOString()
+          }]
+        }
+      }
+      return c;
+    }), false);
+
+    // Chamar API para enviar via WhatsApp (você pode implementar a rota POST /api/conversations/send)
+    // await fetch('/api/conversations/send', { method: 'POST', body: JSON.stringify({ botId: selectedConv.botId, to: selectedConv.contactPhone, text: tempMessage }) });
   }
 
   return (
-    <DashboardLayout title="Conversas" description="Visualize e gerencie todas as conversas">
+    <DashboardLayout title="Conversas (Ao Vivo)" description="Atendimento em tempo real com integração automática da IA.">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-220px)]">
         {/* Conversations List */}
         <Card className="bg-card border-border lg:col-span-1 flex flex-col">
@@ -103,7 +141,11 @@ export default function ConversationsPage() {
           
           <ScrollArea className="flex-1">
             <div className="divide-y divide-border">
-              {filteredConversations.map((conv) => (
+              {filteredConversations.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-sm">
+                  Nenhuma conversa registrada. As mensagens aparecerão aqui automaticamente quando o WhatsApp receber novas mensagens.
+                </div>
+              ) : filteredConversations.map((conv: any) => (
                 <button
                   key={conv.id}
                   onClick={() => handleSelectConversation(conv.id)}
@@ -113,8 +155,8 @@ export default function ConversationsPage() {
                     conv.unreadCount > 0 && "bg-primary/5"
                   )}
                 >
-                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-semibold flex-shrink-0">
-                    {conv.contactName.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-semibold flex-shrink-0 text-primary">
+                    {conv.contactName?.substring(0, 2).toUpperCase() || "??"}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
@@ -155,12 +197,12 @@ export default function ConversationsPage() {
               {/* Chat Header */}
               <div className="flex items-center justify-between p-4 border-b border-border">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-semibold">
-                    {selectedConv.contactName.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-semibold text-primary">
+                    {selectedConv.contactName?.substring(0, 2).toUpperCase() || "??"}
                   </div>
                   <div>
                     <h3 className="font-medium text-foreground">{selectedConv.contactName}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedConv.contactPhone}</p>
+                    <p className="text-sm text-muted-foreground">+{selectedConv.contactPhone}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -177,63 +219,65 @@ export default function ConversationsPage() {
               </div>
 
               {/* Messages */}
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-4">
-                  {mockMessages.map((msg) => (
+              <div 
+                ref={scrollRef}
+                className="flex-1 p-4 overflow-y-auto space-y-4"
+              >
+                {selectedConv.messages?.map((msg: any) => (
+                  <div
+                    key={msg.id}
+                    className={cn(
+                      "flex",
+                      msg.sender === "bot" ? "justify-end" : "justify-start"
+                    )}
+                  >
                     <div
-                      key={msg.id}
                       className={cn(
-                        "flex",
-                        msg.sender === "bot" ? "justify-end" : "justify-start"
+                        "max-w-[80%] rounded-2xl px-4 py-2 shadow-sm",
+                        msg.sender === "bot"
+                          ? "bg-primary text-primary-foreground rounded-br-sm"
+                          : "bg-secondary text-foreground rounded-bl-sm"
                       )}
                     >
-                      <div
-                        className={cn(
-                          "max-w-[70%] rounded-2xl px-4 py-2",
-                          msg.sender === "bot"
-                            ? "bg-primary text-primary-foreground rounded-br-md"
-                            : "bg-secondary text-foreground rounded-bl-md"
-                        )}
-                      >
-                        <p className="text-sm">{msg.content}</p>
-                        <div className={cn(
-                          "flex items-center gap-1 mt-1",
-                          msg.sender === "bot" ? "justify-end" : "justify-start"
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      <div className={cn(
+                        "flex items-center gap-1 mt-1",
+                        msg.sender === "bot" ? "justify-end" : "justify-start"
+                      )}>
+                        <span className={cn(
+                          "text-[10px]",
+                          msg.sender === "bot" ? "text-primary-foreground/70" : "text-muted-foreground"
                         )}>
-                          <span className={cn(
-                            "text-xs",
-                            msg.sender === "bot" ? "text-primary-foreground/70" : "text-muted-foreground"
-                          )}>
-                            {msg.time}
-                          </span>
-                          {msg.sender === "bot" && (
-                            <CheckCheck className="w-3 h-3 text-primary-foreground/70" />
-                          )}
-                        </div>
+                          {msg.time}
+                        </span>
+                        {msg.sender === "bot" && (
+                          <CheckCheck className="w-3 h-3 text-primary-foreground/70" />
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
+                  </div>
+                ))}
+              </div>
 
               {/* Input */}
-              <div className="p-4 border-t border-border">
+              <div className="p-4 border-t border-border bg-card">
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Digite sua mensagem..."
+                    placeholder="Intervir no atendimento da IA..."
                     className="bg-secondary border-border"
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && messageInput.trim()) {
-                        setMessageInput("")
-                      }
+                      if (e.key === "Enter") handleSendMessage();
                     }}
                   />
-                  <Button size="icon">
+                  <Button size="icon" onClick={handleSendMessage} className="shrink-0">
                     <Send className="w-4 h-4" />
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Quando você responde manualmente, a IA ainda está ativa. Se desejar, desligue-a na aba de Agentes.
+                </p>
               </div>
             </>
           ) : (
@@ -242,7 +286,7 @@ export default function ConversationsPage() {
                 <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="font-medium text-foreground">Selecione uma conversa</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Escolha uma conversa da lista para visualizar
+                  Aguardando novas mensagens... (Atualizando ao vivo)
                 </p>
               </div>
             </div>

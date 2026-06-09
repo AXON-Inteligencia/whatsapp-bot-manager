@@ -193,18 +193,70 @@ export class WhatsAppService {
 
     sock.ev.on('messages.upsert', async (m) => {
       const msg = m.messages[0];
-      if (!msg.message || msg.key.fromMe || m.type !== 'notify') return;
+      if (!msg.message || m.type !== 'notify') return;
 
       const remoteJid = msg.key.remoteJid;
       if (!remoteJid || remoteJid.includes('@g.us') || remoteJid.includes('status')) return; // Ignora grupos e status
 
+      const isFromMe = msg.key.fromMe;
+      const textMessage = msg.message.conversation || msg.message.extendedTextMessage?.text;
+      if (!textMessage) return;
+
+      const timestamp = new Date().toISOString();
+      const contactPhone = remoteJid.replace('@s.whatsapp.net', '');
+      
+      // SALVAR NO BANCO DE DADOS (REDIS)
+      try {
+        const convId = `${botId}:${contactPhone}`;
+        const newMessage = {
+          id: msg.key.id || Math.random().toString(36).substr(2, 9),
+          content: textMessage,
+          sender: isFromMe ? 'bot' : 'contact',
+          time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          timestamp
+        };
+        
+        const convKey = `axon:conversations:${convId}`;
+        let conv: any = await redis.get(convKey);
+        
+        if (!conv) {
+          conv = {
+            id: convId,
+            botId,
+            botName: `Bot ${botId.substring(0, 4)}`,
+            contactPhone,
+            contactName: msg.pushName || contactPhone,
+            messages: [],
+            unreadCount: 0,
+            lastMessage: textMessage,
+            timestamp
+          };
+        }
+        
+        conv.messages.push(newMessage);
+        conv.lastMessage = textMessage;
+        conv.timestamp = timestamp;
+        if (!isFromMe) {
+          conv.unreadCount += 1;
+        }
+
+        if (conv.messages.length > 50) {
+          conv.messages = conv.messages.slice(-50);
+        }
+
+        await redis.set(convKey, conv);
+      } catch (err) {
+        console.error(`[WhatsAppService] Erro ao salvar mensagem no histórico:`, err);
+      }
+
+      // SE FOR MENSAGEM MINHA, NÃO CHAMA A IA
+      if (isFromMe) return;
+
+      // LÓGICA DA IA (GEMINI)
       try {
         const bots: any[] = await redis.get('axon:bots') || [];
         const bot = bots.find((b: any) => b.id === botId);
         if (!bot || !bot.aiSettings?.enabled || !bot.aiSettings?.apiKey) return;
-
-        const textMessage = msg.message.conversation || msg.message.extendedTextMessage?.text;
-        if (!textMessage) return;
 
         console.log(`[WhatsAppService] Mensagem recebida no bot ${botId} de ${remoteJid}: ${textMessage}`);
         
@@ -213,19 +265,30 @@ export class WhatsAppService {
         const genAI = new GoogleGenerativeAI(bot.aiSettings.apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        const prompt = `${bot.aiSettings.systemPrompt || "Você é um assistente prestativo."}\n\nO cliente enviou a seguinte mensagem no WhatsApp:\n"${textMessage}"\n\nResponda o cliente de forma natural, persuasiva e não muito longa, focando no seu objetivo de vendas:`;
+        const prompt = `COMPORTAMENTO DO VENDEDOR (Siga estritamente):
+${bot.aiSettings.systemPrompt || "Você é um assistente prestativo."}
+
+INSTRUÇÕES IMPORTANTES:
+- Se o cliente enviar palavras curtas como "teste", "testando", "oi", responda de forma amigável dizendo que você (o sistema) está operante e pergunte como pode ajudar.
+- NUNCA invente informações.
+- Responda SEMPRE em português do Brasil, seja natural, humano e focado na conversão se for o caso.
+
+MENSAGEM DO CLIENTE:
+"${textMessage}"
+
+SUA RESPOSTA:`;
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
 
-        // Simula digitação (mínimo 2s, máximo 8s)
-        const delay = Math.min(Math.max(responseText.length * 40, 2000), 8000);
+        // Simula digitação (mínimo 2s, máximo 7s)
+        const delay = Math.min(Math.max(responseText.length * 30, 2000), 7000);
         await new Promise(r => setTimeout(r, delay));
 
         await sock.sendPresenceUpdate('paused', remoteJid);
         await sock.sendMessage(remoteJid, { text: responseText });
-      } catch (err) {
-        console.error(`[WhatsAppService] Erro na Inteligência Artificial:`, err);
+      } catch (err: any) {
+        console.error(`[WhatsAppService] Erro Crítico na Inteligência Artificial:`, err?.message || err);
         if (remoteJid) await sock.sendPresenceUpdate('paused', remoteJid).catch(() => {});
       }
     });
