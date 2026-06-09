@@ -261,10 +261,8 @@ export class WhatsAppService {
         console.log(`[WhatsAppService] Mensagem recebida no bot ${botId} de ${remoteJid}: ${textMessage}`);
         
         await sock.sendPresenceUpdate('composing', remoteJid);
-        
         const apiKey = bot.aiSettings.apiKey.trim();
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const prompt = `COMPORTAMENTO DO VENDEDOR (Siga estritamente):
 ${bot.aiSettings.systemPrompt || "Você é um assistente prestativo."}
@@ -279,8 +277,17 @@ MENSAGEM DO CLIENTE:
 
 SUA RESPOSTA:`;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        let responseText = "";
+        try {
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+          const result = await model.generateContent(prompt);
+          responseText = result.response.text();
+        } catch (flashError) {
+          console.warn("[WhatsAppService] Falha no flash-latest, tentando gemini-1.5-pro-latest...", flashError);
+          const modelFallback = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
+          const resultFallback = await modelFallback.generateContent(prompt);
+          responseText = resultFallback.response.text();
+        }
 
         // Simula digitação (mínimo 2s, máximo 7s)
         const delay = Math.min(Math.max(responseText.length * 30, 2000), 7000);
