@@ -232,6 +232,28 @@ export class WhatsAppService {
     return await sock.sendMessage(to, message);
   }
 
+  static async updateProfilePicture(botId: string, imageUrl: string) {
+    const sock = await this.getSocket(botId);
+    if (!sock) {
+      throw new Error('Bot não está conectado ou a sessão expirou.');
+    }
+    
+    // Baixar a imagem
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error('Não foi possível baixar a imagem da URL fornecida.');
+    }
+    
+    const buffer = Buffer.from(await response.arrayBuffer());
+    
+    // Atualizar a foto (0 jid = my jid)
+    const jid = sock.user?.id;
+    if (!jid) throw new Error('Não foi possível obter o JID do bot');
+    
+    await sock.updateProfilePicture(jid, buffer);
+    return true;
+  }
+
   static async getStatus(botId: string) {
     const status = await redis.get(`status:${botId}`);
     return status || 'disconnected';

@@ -52,7 +52,8 @@ import {
   Trash2,
   QrCode,
   MessageSquare,
-  TrendingUp
+  TrendingUp,
+  Image as ImageIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BotStatus } from "@/lib/types"
@@ -112,7 +113,35 @@ export default function BotsPage() {
       setIsCreateOpen(false)
       toast.success("Bot criado com sucesso!")
     } catch (error: any) {
-      toast.error(error.message || "Erro ao criar o bot")
+      toast.error(error.message || "Erro de conexão")
+    }
+  }
+
+  const handleUpdateProfilePicture = async (botId: string, botStatus: string) => {
+    if (botStatus !== "online") {
+      toast.error("O bot precisa estar online para alterar a foto de perfil.")
+      return
+    }
+
+    const imageUrl = window.prompt("Cole a URL (link) da nova foto de perfil:")
+    if (!imageUrl) return
+
+    const toastId = toast.loading("Atualizando foto de perfil...")
+    try {
+      const res = await fetch("/api/whatsapp/profile-picture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botId, imageUrl })
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        toast.success("Foto atualizada com sucesso no WhatsApp!", { id: toastId })
+      } else {
+        toast.error(data.error || "Erro ao atualizar foto.", { id: toastId })
+      }
+    } catch (err: any) {
+      toast.error("Erro de conexão: " + err.message, { id: toastId })
     }
   }
 
@@ -388,6 +417,10 @@ export default function BotsPage() {
                       <DropdownMenuItem onClick={() => openEditDialog(bot.id)}>
                         <Settings className="w-4 h-4 mr-2" />
                         Configurações
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleUpdateProfilePicture(bot.id, bot.status)}>
+                        <ImageIcon className="w-4 h-4 mr-2" />
+                        Alterar Foto de Perfil
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
