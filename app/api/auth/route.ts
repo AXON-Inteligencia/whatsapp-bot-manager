@@ -47,7 +47,17 @@ export async function POST(request: NextRequest) {
       return response
     }
 
-    return NextResponse.json({ error: "Credenciais inválidas ou Banco de Dados (Postgres) não configurado no .env local." }, { status: 401 })
+    try {
+      await initDB()
+    } catch (dbError) {
+      console.error("Erro ao inicializar DB:", dbError)
+    }
+
+    const user = await authenticateUser(email, password)
+
+    if (!user) {
+      return NextResponse.json({ error: "Credenciais inválidas" }, { status: 401 })
+    }
 
     // Gerar Token JWT
     const token = await new SignJWT({ 
