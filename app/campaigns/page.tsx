@@ -522,24 +522,72 @@ export default function CampaignsPage() {
                   <TableBody>
                     {results.map((r, i) => (
                       <TableRow key={i} className="border-border">
-                        <TableCell className="font-medium">{r.name || r.phone}</TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{r.phone}</TableCell>
+                        <TableCell className="font-medium">
+                          {r.status === "pending" ? (
+                            <Input 
+                              value={r.name || ""} 
+                              onChange={(e) => {
+                                const newResults = [...results]
+                                newResults[i].name = e.target.value
+                                setResults(newResults)
+                              }}
+                              className="h-7 text-sm bg-secondary border-border w-full"
+                              placeholder="Nome"
+                            />
+                          ) : (
+                            r.name || r.phone
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {r.status === "pending" ? (
+                            <Input 
+                              value={r.phone} 
+                              onChange={(e) => {
+                                const newResults = [...results]
+                                newResults[i].phone = e.target.value
+                                setResults(newResults)
+                              }}
+                              className="h-7 text-sm bg-secondary border-border w-full"
+                            />
+                          ) : (
+                            r.phone
+                          )}
+                        </TableCell>
                         <TableCell>
-                          {r.status === "sent" && (
-                            <Badge className="bg-green-500/10 text-green-500 border-green-500/20 gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> Enviado
-                            </Badge>
-                          )}
-                          {r.status === "error" && (
-                            <Badge className="bg-red-500/10 text-red-500 border-red-500/20 gap-1" title={r.error}>
-                              <XCircle className="w-3 h-3" /> Erro
-                            </Badge>
-                          )}
-                          {r.status === "pending" && (
-                            <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 gap-1">
-                              <Clock className="w-3 h-3" /> Pendente
-                            </Badge>
-                          )}
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              {r.status === "sent" && (
+                                <Badge className="bg-green-500/10 text-green-500 border-green-500/20 gap-1">
+                                  <CheckCircle2 className="w-3 h-3" /> Enviado
+                                </Badge>
+                              )}
+                              {r.status === "error" && (
+                                <Badge className="bg-red-500/10 text-red-500 border-red-500/20 gap-1" title={r.error}>
+                                  <XCircle className="w-3 h-3" /> Erro
+                                </Badge>
+                              )}
+                              {r.status === "pending" && (
+                                <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 gap-1">
+                                  <Clock className="w-3 h-3" /> Pendente
+                                </Badge>
+                              )}
+                            </div>
+                            {r.status === "pending" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                                onClick={() => {
+                                  const newResults = [...results]
+                                  newResults.splice(i, 1)
+                                  setResults(newResults)
+                                }}
+                                title="Remover da lista"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

@@ -16,6 +16,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { 
   Search, 
   Globe,
@@ -27,7 +40,9 @@ import {
   ArrowLeft,
   Link as LinkIcon,
   Users,
-  Zap
+  Zap,
+  Download,
+  Bot
 } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -47,6 +62,13 @@ export default function SearchGroupsPage() {
   const [groups, setGroups] = useState<GroupLink[]>([])
   const [searched, setSearched] = useState(false)
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
+
+  // Estados de Extração
+  const [extractModalOpen, setExtractModalOpen] = useState(false)
+  const [extractingUrl, setExtractingUrl] = useState("")
+  const [selectedBotId, setSelectedBotId] = useState("")
+  const [extracting, setExtracting] = useState(false)
+  const [extractedData, setExtractedData] = useState<any>(null)
 
   const onlineBots = bots.filter((b) => b.status === "online")
 
@@ -112,6 +134,59 @@ export default function SearchGroupsPage() {
 
     navigator.clipboard.writeText(links)
     toast.success(`${selectedGroups.size} links copiados!`)
+  }
+
+  const handleExtractMembers = async () => {
+    if (!selectedBotId) {
+      toast.error("Selecione um bot online para entrar no grupo.")
+      return
+    }
+    setExtracting(true)
+    setExtractedData(null)
+    
+    try {
+      const res = await fetch("/api/whatsapp/extract-group", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botId: selectedBotId, inviteLink: extractingUrl }),
+      })
+      const data = await res.json()
+      
+      if (!res.ok) {
+        toast.error(data.error || "Erro ao extrair contatos")
+        return
+      }
+      
+      setExtractedData(data)
+      toast.success(`${data.participantsCount} contatos extraídos com sucesso!`)
+      
+      // Save contacts to AppStore and LocalStorage for campaign
+      const formattedContacts = data.participants
+        .filter((p: any) => p.phone)
+        .map((p: any) => ({
+          phone: p.phone,
+          name: `Contato Grupo ${data.groupName || ""}`,
+          status: "pending"
+        }))
+        
+      if (formattedContacts.length > 0) {
+        const existingStr = localStorage.getItem("axon_campaign_results") || "[]"
+        let existing = []
+        try { existing = JSON.parse(existingStr) } catch(e){}
+        const merged = [...existing, ...formattedContacts]
+        localStorage.setItem("axon_campaign_results", JSON.stringify(merged))
+      }
+    } catch (err: any) {
+      toast.error("Erro de conexão: " + err.message)
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  const openExtractModal = (url: string) => {
+    setExtractingUrl(url)
+    setExtractModalOpen(true)
+    setExtractedData(null)
   }
 
   return (
@@ -277,6 +352,16 @@ export default function SearchGroupsPage() {
                                 <ExternalLink className="w-3 h-3" />
                               </a>
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="h-7 px-2 text-[10px] bg-primary/20 text-primary hover:bg-primary/30"
+                              onClick={() => openExtractModal(group.url)}
+                              title="Extrair membros"
+                            >
+                              <Download className="w-3 h-3 mr-1" />
+                              Extrair
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -319,6 +404,76 @@ export default function SearchGroupsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Modal de Extração */}
+      <Dialog open={extractModalOpen} onOpenChange={setExtractModalOpen}>
+        <DialogContent className="sm:max-w-md bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5 text-primary" />
+              Extrair Membros do Grupo
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Link do Grupo</Label>
+              <Input value={extractingUrl} readOnly className="bg-secondary/50 text-xs text-muted-foreground font-mono" />
+            </div>
+            
+            {!extractedData ? (
+              <div className="space-y-2">
+                <Label>Selecione o Bot Extrator</Label>
+                <Select value={selectedBotId} onValueChange={setSelectedBotId}>
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Selecione um bot online" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {onlineBots.length === 0 ? (
+                      <SelectItem value="none" disabled>Nenhum bot online</SelectItem>
+                    ) : (
+                      onlineBots.map((bot) => (
+                        <SelectItem key={bot.id} value={bot.id}>
+                          {bot.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-2">
+                  <AlertCircle className="w-3 h-3 inline mr-1" />
+                  O bot selecionado entrará no grupo silenciosamente para capturar a lista de membros.
+                </p>
+                <Button 
+                  className="w-full mt-4" 
+                  onClick={handleExtractMembers}
+                  disabled={extracting || !selectedBotId}
+                >
+                  {extracting ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Entrando no grupo e extraindo...</>
+                  ) : (
+                    <><Bot className="w-4 h-4 mr-2" /> Iniciar Extração</>
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4 bg-green-500/10 border border-green-500/20 p-4 rounded-lg text-center">
+                <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto" />
+                <div>
+                  <h3 className="font-semibold text-green-500">{extractedData.groupName}</h3>
+                  <p className="text-sm text-muted-foreground">{extractedData.participantsCount} membros extraídos com sucesso!</p>
+                </div>
+                <div className="pt-2">
+                  <Button className="w-full bg-green-600 hover:bg-green-700" asChild>
+                    <Link href="/campaigns">
+                      Ir para Nova Campanha
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }

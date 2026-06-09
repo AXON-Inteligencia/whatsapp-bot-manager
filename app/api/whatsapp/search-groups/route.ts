@@ -73,12 +73,34 @@ export async function POST(req: NextRequest) {
           .filter(g => g.url.includes('chat.whatsapp.com/'))
           .map((g) => [g.url, g])
       ).values()
-    ).slice(0, limit);
+    );
+
+    // VALIDAÇÃO EM TEMPO REAL: Filtra apenas grupos que estão "Vivos" e reais
+    const validGroups: GroupLink[] = [];
+    
+    // Validar em lotes para não sobrecarregar
+    const batchSize = 10;
+    for (let i = 0; i < uniqueGroups.length; i += batchSize) {
+      const batch = uniqueGroups.slice(i, i + batchSize);
+      const results = await Promise.all(
+        batch.map(async (group) => {
+          const isValid = await validateGroup(group.url);
+          if (isValid.valid) {
+            return { ...group, title: isValid.name || group.title, source: 'Verificado (Real)' };
+          }
+          return null;
+        })
+      );
+      validGroups.push(...(results.filter(Boolean) as GroupLink[]));
+      if (validGroups.length >= limit) break; // Para quando atingir o limite
+    }
+
+    const finalGroups = validGroups.slice(0, limit);
 
     return NextResponse.json({
       keyword,
-      total: uniqueGroups.length,
-      groups: uniqueGroups,
+      total: finalGroups.length,
+      groups: finalGroups,
     });
   } catch (error: any) {
     console.error('Erro crítico na busca:', error);
@@ -117,4 +139,37 @@ async function searchDirectories(keyword: string, limit: number): Promise<GroupL
     if (results.length >= limit) break;
   }
   return results;
+}
+
+/**
+ * Valida se um link de grupo de WhatsApp é real e está ativo
+ * lendo o título da página do convite.
+ */
+async function validateGroup(url: string): Promise<{ valid: boolean, name?: string }> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      next: { revalidate: 0 },
+      // Timeout rápido para não travar a busca
+      signal: AbortSignal.timeout(3000)
+    });
+    
+    if (!response.ok) return { valid: false };
+    
+    const html = await response.text();
+    const titleMatch = html.match(/<meta property="og:title" content="([^"]+)"/);
+    const title = titleMatch ? titleMatch[1] : null;
+    
+    // Se o título for genérico "WhatsApp Group Invite", o grupo foi revogado ou não existe mais.
+    // Grupos reais retornam o nome real do grupo no título.
+    if (title && title !== 'WhatsApp Group Invite') {
+      return { valid: true, name: title };
+    }
+    
+    return { valid: false };
+  } catch (err) {
+    return { valid: false };
+  }
 }

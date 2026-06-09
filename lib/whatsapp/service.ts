@@ -193,6 +193,10 @@ export class WhatsAppService {
     return sock;
   }
 
+  static async getSocket(botId: string) {
+    return this.instances.get(botId);
+  }
+
   static async sendMessage(botId: string, to: string, text: string) {
     const sock = this.instances.get(botId);
     if (!sock) {

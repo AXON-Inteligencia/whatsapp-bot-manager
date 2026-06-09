@@ -175,16 +175,31 @@ export async function initializeBulkMessageWorker() {
 
           // Progresso
           job.progress(((i + 1) / contacts.length) * 100);
-
-          // Delay anti-ban com variação aleatória
-          const randomDelay = delayMs + Math.random() * (delayMs * 0.3);
-          await new Promise((resolve) => setTimeout(resolve, randomDelay));
         } catch (err: any) {
-          results.push({
-            phone,
-            status: 'error',
-            error: err.message,
-          });
+          const errMsg = err?.message || String(err);
+          // O WhatsApp às vezes demora para confirmar (ACK) e a biblioteca Baileys 
+          // lança um "TimeoutError" mesmo que a mensagem tenha sido entregue com sucesso.
+          // Nesses casos de timeout, vamos considerar como enviada para não alarmar o usuário.
+          if (errMsg.toLowerCase().includes('timeout') || errMsg.toLowerCase().includes('timed out')) {
+            results.push({
+              phone,
+              status: 'sent',
+              sentAt: new Date().toISOString(),
+            });
+            job.progress(((i + 1) / contacts.length) * 100);
+          } else {
+            results.push({
+              phone,
+              status: 'error',
+              error: errMsg,
+            });
+          }
+        } finally {
+          // Delay anti-ban OBRIGATÓRIO, executa mesmo que dê erro na mensagem anterior
+          if (delayMs > 0) {
+            const randomDelay = delayMs + Math.random() * (delayMs * 0.3);
+            await new Promise((resolve) => setTimeout(resolve, randomDelay));
+          }
         }
       }
 

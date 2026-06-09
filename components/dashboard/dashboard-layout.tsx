@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { DashboardSidebar } from "./sidebar"
 import { DashboardHeader } from "./header"
 
@@ -10,6 +11,14 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, title, description }: DashboardLayoutProps) {
+  useEffect(() => {
+    // Faz um ping a cada 5 minutos (300.000 ms) para evitar que o Render hiberne
+    const interval = setInterval(() => {
+      fetch('/api/ping').catch(() => {});
+    }, 300000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-background via-background to-primary/5">
       <DashboardSidebar />

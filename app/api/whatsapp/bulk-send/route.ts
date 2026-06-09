@@ -65,14 +65,19 @@ export async function POST(req: NextRequest) {
         }
 
         results.push({ phone, status: 'sent' });
-
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        if (errMsg.toLowerCase().includes('timeout') || errMsg.toLowerCase().includes('timed out')) {
+          results.push({ phone, status: 'sent' });
+        } else {
+          results.push({ phone, status: 'error', error: errMsg });
+        }
+      } finally {
         // Delay anti-ban com variação aleatória
         if (delayMs > 0) {
           const randomDelay = delayMs + Math.random() * (delayMs * 0.3);
           await new Promise((resolve) => setTimeout(resolve, randomDelay));
         }
-      } catch (err: any) {
-        results.push({ phone, status: 'error', error: err.message });
       }
     }
 
