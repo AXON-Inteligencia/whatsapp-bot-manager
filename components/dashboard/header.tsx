@@ -14,7 +14,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 
+import { useEffect, useState } from "react"
+
 export function DashboardHeader() {
+  const [avatarUrl, setAvatarUrl] = useState("/avatar.png")
+
+  useEffect(() => {
+    const saved = localStorage.getItem('axon_user_avatar')
+    if (saved) setAvatarUrl(saved)
+  }, [])
+
   return (
     <header className="flex items-center justify-between h-16 px-6 border-b border-border bg-card">
       <div className="flex items-center gap-4 flex-1">
@@ -64,7 +73,7 @@ export function DashboardHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
               <Avatar className="h-9 w-9">
-                <AvatarImage src="/avatar.png" alt="Avatar" />
+                <AvatarImage src={avatarUrl} alt="Avatar" />
                 <AvatarFallback className="bg-primary text-primary-foreground">JD</AvatarFallback>
               </Avatar>
             </Button>
@@ -73,11 +82,22 @@ export function DashboardHeader() {
             <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => {
-              const url = window.prompt("Cole a URL da sua nova foto de perfil do painel:")
-              if (url) {
-                const img = document.querySelector('.h-9.w-9 img') as HTMLImageElement
-                if (img) img.src = url
+              const input = document.createElement('input')
+              input.type = 'file'
+              input.accept = 'image/*'
+              input.onchange = (e: any) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                const reader = new FileReader()
+                reader.onload = () => {
+                  const url = reader.result as string
+                  const img = document.querySelector('.h-9.w-9 img') as HTMLImageElement
+                  if (img) img.src = url
+                  localStorage.setItem('axon_user_avatar', url)
+                }
+                reader.readAsDataURL(file)
               }
+              input.click()
             }}>
               Alterar Minha Foto
             </DropdownMenuItem>

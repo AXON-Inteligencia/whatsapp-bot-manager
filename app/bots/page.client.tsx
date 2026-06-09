@@ -123,26 +123,37 @@ export default function BotsPage() {
       return
     }
 
-    const imageUrl = window.prompt("Cole a URL (link) da nova foto de perfil:")
-    if (!imageUrl) return
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.onchange = async (e: any) => {
+      const file = e.target.files?.[0]
+      if (!file) return
 
-    const toastId = toast.loading("Atualizando foto de perfil...")
-    try {
-      const res = await fetch("/api/whatsapp/profile-picture", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ botId, imageUrl })
-      })
+      const reader = new FileReader()
+      reader.onload = async () => {
+        const imageBase64 = reader.result as string
+        const toastId = toast.loading("Atualizando foto de perfil...")
+        try {
+          const res = await fetch("/api/whatsapp/profile-picture", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ botId, imageBase64 })
+          })
 
-      const data = await res.json()
-      if (res.ok) {
-        toast.success("Foto atualizada com sucesso no WhatsApp!", { id: toastId })
-      } else {
-        toast.error(data.error || "Erro ao atualizar foto.", { id: toastId })
+          const data = await res.json()
+          if (res.ok) {
+            toast.success("Foto atualizada com sucesso no WhatsApp!", { id: toastId })
+          } else {
+            toast.error(data.error || "Erro ao atualizar foto.", { id: toastId })
+          }
+        } catch (err: any) {
+          toast.error("Erro de conexão: " + err.message, { id: toastId })
+        }
       }
-    } catch (err: any) {
-      toast.error("Erro de conexão: " + err.message, { id: toastId })
+      reader.readAsDataURL(file)
     }
+    input.click()
   }
 
   const handleUpdate = async () => {

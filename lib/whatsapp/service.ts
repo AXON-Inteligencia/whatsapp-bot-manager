@@ -232,19 +232,26 @@ export class WhatsAppService {
     return await sock.sendMessage(to, message);
   }
 
-  static async updateProfilePicture(botId: string, imageUrl: string) {
+  static async updateProfilePicture(botId: string, options: { imageUrl?: string, imageBase64?: string }) {
     const sock = await this.getSocket(botId);
     if (!sock) {
       throw new Error('Bot não está conectado ou a sessão expirou.');
     }
     
-    // Baixar a imagem
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      throw new Error('Não foi possível baixar a imagem da URL fornecida.');
+    let buffer: Buffer;
+
+    if (options.imageBase64) {
+      const base64Data = options.imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      buffer = Buffer.from(base64Data, 'base64');
+    } else if (options.imageUrl) {
+      const response = await fetch(options.imageUrl);
+      if (!response.ok) {
+        throw new Error('Não foi possível baixar a imagem da URL fornecida.');
+      }
+      buffer = Buffer.from(await response.arrayBuffer());
+    } else {
+      throw new Error('Nenhuma imagem fornecida.');
     }
-    
-    const buffer = Buffer.from(await response.arrayBuffer());
     
     // Atualizar a foto (0 jid = my jid)
     const jid = sock.user?.id;
