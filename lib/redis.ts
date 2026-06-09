@@ -53,6 +53,21 @@ export const redisRest = process.env.UPSTASH_REDIS_REST_URL ? new Redis({
     const data = getMockData();
     const prefix = pattern.replace('*', '');
     return Object.keys(data).filter(k => k.startsWith(prefix));
+  },
+  lpush: async (key: string, ...values: any[]) => {
+    const data = getMockData();
+    if (!Array.isArray(data[key])) {
+      data[key] = [];
+    }
+    data[key].unshift(...values);
+    saveMockData(data);
+    return data[key].length;
+  },
+  lrange: async (key: string, start: number, stop: number) => {
+    const data = getMockData();
+    const list = data[key] || [];
+    if (!Array.isArray(list)) return [];
+    return list.slice(start, stop === -1 ? undefined : stop + 1);
   }
 } as unknown as Redis;
 
