@@ -9,6 +9,11 @@ export interface Bot {
   uptime: string
   createdAt: Date
   description?: string
+  aiSettings?: {
+    enabled: boolean
+    apiKey?: string
+    systemPrompt?: string
+  }
 }
 
 export interface Conversation {

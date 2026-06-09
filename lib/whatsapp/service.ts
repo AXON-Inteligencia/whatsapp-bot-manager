@@ -15,6 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
 import { redis } from '../redis';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const logger = pino({ level: 'info' });
 const SESSIONS_DIR = '/tmp/sessions';
@@ -187,6 +188,45 @@ export class WhatsAppService {
         console.log(`[WhatsAppService] Conexão aberta com sucesso para o bot ${botId}`);
         await redis.del(`qr:${botId}`);
         await redis.set(`status:${botId}`, 'online');
+      }
+    });
+
+    sock.ev.on('messages.upsert', async (m) => {
+      const msg = m.messages[0];
+      if (!msg.message || msg.key.fromMe || m.type !== 'notify') return;
+
+      const remoteJid = msg.key.remoteJid;
+      if (!remoteJid || remoteJid.includes('@g.us') || remoteJid.includes('status')) return; // Ignora grupos e status
+
+      try {
+        const bots: any[] = await redis.get('axon:bots') || [];
+        const bot = bots.find((b: any) => b.id === botId);
+        if (!bot || !bot.aiSettings?.enabled || !bot.aiSettings?.apiKey) return;
+
+        const textMessage = msg.message.conversation || msg.message.extendedTextMessage?.text;
+        if (!textMessage) return;
+
+        console.log(`[WhatsAppService] Mensagem recebida no bot ${botId} de ${remoteJid}: ${textMessage}`);
+        
+        await sock.sendPresenceUpdate('composing', remoteJid);
+        
+        const genAI = new GoogleGenerativeAI(bot.aiSettings.apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+        const prompt = `${bot.aiSettings.systemPrompt || "Você é um assistente prestativo."}\n\nO cliente enviou a seguinte mensagem no WhatsApp:\n"${textMessage}"\n\nResponda o cliente de forma natural, persuasiva e não muito longa, focando no seu objetivo de vendas:`;
+
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+
+        // Simula digitação (mínimo 2s, máximo 8s)
+        const delay = Math.min(Math.max(responseText.length * 40, 2000), 8000);
+        await new Promise(r => setTimeout(r, delay));
+
+        await sock.sendPresenceUpdate('paused', remoteJid);
+        await sock.sendMessage(remoteJid, { text: responseText });
+      } catch (err) {
+        console.error(`[WhatsAppService] Erro na Inteligência Artificial:`, err);
+        if (remoteJid) await sock.sendPresenceUpdate('paused', remoteJid).catch(() => {});
       }
     });
 

@@ -44,9 +44,11 @@ export default function RootLayout({
           position="top-right"
           toastOptions={{
             style: {
-              background: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
-              color: 'hsl(var(--foreground))',
+              background: 'rgba(20, 20, 25, 0.8)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(16, 185, 129, 0.2)',
+              color: '#fff',
+              boxShadow: '0 4px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(16, 185, 129, 0.1)',
             },
           }}
         />
