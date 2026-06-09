@@ -194,21 +194,31 @@ export class WhatsAppService {
   }
 
   static async getSocket(botId: string) {
-    return this.instances.get(botId);
+    let sock = this.instances.get(botId);
+    if (!sock) {
+      const status = await redis.get(`status:${botId}`);
+      if (status === 'online') {
+        console.log(`[WhatsAppService] Socket não encontrado na memória. Restaurando conexão do Redis para o bot ${botId}`);
+        sock = await this.connect(botId);
+        // Aguarda 3 segundos para dar tempo do socket conectar ao WhatsApp
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+    return sock;
   }
 
   static async sendMessage(botId: string, to: string, text: string) {
-    const sock = this.instances.get(botId);
+    const sock = await this.getSocket(botId);
     if (!sock) {
-      throw new Error('Bot não está conectado ativamente na memória deste servidor');
+      throw new Error('Bot não está conectado ou a sessão expirou. Reconecte-o no painel.');
     }
     return await sock.sendMessage(to, { text });
   }
 
   static async sendMessageWithMedia(botId: string, to: string, text: string, mediaUrl: string, mediaType: string) {
-    const sock = this.instances.get(botId);
+    const sock = await this.getSocket(botId);
     if (!sock) {
-      throw new Error('Bot não está conectado ativamente na memória deste servidor');
+      throw new Error('Bot não está conectado ou a sessão expirou. Reconecte-o no painel.');
     }
     const message: any = { caption: text };
     if (mediaType === 'image') message.image = { url: mediaUrl };

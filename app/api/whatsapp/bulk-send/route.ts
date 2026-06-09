@@ -50,7 +50,12 @@ export async function POST(req: NextRequest) {
       if (!phone) continue;
 
       try {
-        const formattedPhone = phone.replace(/\D/g, '') + '@s.whatsapp.net';
+        let cleanPhone = phone.replace(/\D/g, '');
+        // Se for um número brasileiro sem o 55 (ex: 41999999999)
+        if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+          cleanPhone = '55' + cleanPhone;
+        }
+        const formattedPhone = cleanPhone + '@s.whatsapp.net';
 
         if (mediaUrl && mediaType) {
           await WhatsAppService.sendMessageWithMedia(
