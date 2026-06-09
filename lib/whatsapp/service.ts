@@ -262,7 +262,8 @@ export class WhatsAppService {
         
         await sock.sendPresenceUpdate('composing', remoteJid);
         
-        const genAI = new GoogleGenerativeAI(bot.aiSettings.apiKey);
+        const apiKey = bot.aiSettings.apiKey.trim();
+        const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const prompt = `COMPORTAMENTO DO VENDEDOR (Siga estritamente):
@@ -311,8 +312,30 @@ SUA RESPOSTA:`;
         }
         
       } catch (err: any) {
-        console.error(`[WhatsAppService] Erro Crítico na Inteligência Artificial:`, err?.message || err);
+        const errorMessage = err?.message || String(err);
+        console.error(`[WhatsAppService] Erro Crítico na Inteligência Artificial:`, errorMessage);
+        
         if (remoteJid) await sock.sendPresenceUpdate('paused', remoteJid).catch(() => {});
+
+        // SALVAR O ERRO NO PAINEL PARA O USUÁRIO VER
+        try {
+          const contactPhone = remoteJid.replace('@s.whatsapp.net', '');
+          const convId = `${botId}:${contactPhone}`;
+          const convKey = `axon:conversations:${convId}`;
+          let conv: any = await redis.get(convKey);
+          if (conv) {
+            conv.messages.push({
+              id: Math.random().toString(36).substr(2, 9),
+              content: `⚠️ [ERRO NA IA]: Falha ao gerar resposta. Verifique se a Chave API do Gemini está correta e sem espaços. Erro técnico: ${errorMessage}`,
+              sender: 'bot',
+              time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+              timestamp: new Date().toISOString()
+            });
+            conv.lastMessage = "⚠️ Erro na IA";
+            conv.timestamp = new Date().toISOString();
+            await redis.set(convKey, conv);
+          }
+        } catch (e) {}
       }
     });
 
