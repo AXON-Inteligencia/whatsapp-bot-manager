@@ -1,4 +1,23 @@
-import { sql } from "@vercel/postgres"
+import { Pool } from "pg"
+
+// Criando pool de conexão universal (funciona com Render, Supabase, Neon, AWS, etc)
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_URL,
+  ssl: process.env.POSTGRES_URL && !process.env.POSTGRES_URL.includes("localhost") 
+    ? { rejectUnauthorized: false } 
+    : undefined
+})
+
+export const sql = async (strings: TemplateStringsArray, ...values: any[]) => {
+  const queryText = strings.reduce((prev, curr, i) => prev + curr + (i < values.length ? `$${i + 1}` : ""), "")
+  const client = await pool.connect()
+  try {
+    const result = await client.query(queryText, values)
+    return result
+  } finally {
+    client.release()
+  }
+}
 import { User } from "./types"
 import bcrypt from "bcryptjs"
 
