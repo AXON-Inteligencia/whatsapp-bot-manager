@@ -251,7 +251,12 @@ export default function CampaignsPage() {
           campaignContacts[i] = { ...contact, status: "sent" }
           sent++
         } else {
-          campaignContacts[i] = { ...contact, status: "error", error: data.error || "Falha no envio" }
+          // Captura a mensagem de erro específica do contato ou a mensagem geral
+          let specificError = data.error;
+          if (!specificError && data.results && data.results.length > 0) {
+             specificError = data.results[0].error;
+          }
+          campaignContacts[i] = { ...contact, status: "error", error: specificError || "Falha no envio" }
         }
       } catch (err: any) {
         campaignContacts[i] = { ...contact, status: "error", error: err.message }
@@ -562,9 +567,16 @@ export default function CampaignsPage() {
                                 </Badge>
                               )}
                               {r.status === "error" && (
-                                <Badge className="bg-red-500/10 text-red-500 border-red-500/20 gap-1" title={r.error}>
-                                  <XCircle className="w-3 h-3" /> Erro
-                                </Badge>
+                                <div className="flex flex-col gap-1">
+                                  <Badge className="bg-red-500/10 text-red-500 border-red-500/20 gap-1 w-fit" title={r.error}>
+                                    <XCircle className="w-3 h-3" /> Erro
+                                  </Badge>
+                                  {r.error && (
+                                    <span className="text-[10px] text-red-400/80 max-w-[150px] leading-tight truncate" title={r.error}>
+                                      {r.error}
+                                    </span>
+                                  )}
+                                </div>
                               )}
                               {r.status === "pending" && (
                                 <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 gap-1">
