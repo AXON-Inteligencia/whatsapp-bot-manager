@@ -329,39 +329,44 @@ export default function LandingPage() {
             <div className="section-eyebrow">Depoimentos</div>
             <h2 className="section-title">Quem já usa não volta atrás</h2>
           </div>
-          <div className="testimonials-track">
-            <div className="testimonial">
-              <div className="stars">★★★★★</div>
-              <p className="testimonial-text">"Meu WhatsApp virou uma máquina de vendas. Em 3 dias o bot já tinha recuperado o valor do investimento inteiro."</p>
-              <div className="testimonial-author">
-                <div className="author-avatar">CM</div>
-                <div><div className="author-name">Carlos Mendes</div><div className="author-role">Imobiliária Mendes, SP</div></div>
-              </div>
-            </div>
-            <div className="testimonial">
-              <div className="stars">★★★★★</div>
-              <p className="testimonial-text">"O bot soa exatamente como minha equipe. Vários clientes me perguntaram se era a 'Carol' respondendo. É incrível."</p>
-              <div className="testimonial-author">
-                <div className="author-avatar">AP</div>
-                <div><div className="author-name">Ana Paula</div><div className="author-role">Clínica Estética Renova, RJ</div></div>
-              </div>
-            </div>
-            <div className="testimonial">
-              <div className="stars">★★★★★</div>
-              <p className="testimonial-text">"Aumentei 40% no faturamento sem contratar ninguém. O AxonFlow atende mais clientes do que toda minha equipe junta."</p>
-              <div className="testimonial-author">
-                <div className="author-avatar">RS</div>
-                <div><div className="author-name">Rafael Santos</div><div className="author-role">E-commerce de Moda</div></div>
-              </div>
-            </div>
-            <div className="testimonial">
-              <div className="stars">★★★★★</div>
-              <p className="testimonial-text">"Antes eu passava horas respondendo no WhatsApp. Hoje acordo e já tenho agendamentos confirmados. Mudou minha vida."</p>
-              <div className="testimonial-author">
-                <div className="author-avatar">ML</div>
-                <div><div className="author-name">Mariana Lima</div><div className="author-role">Studio de Pilates, MG</div></div>
-              </div>
-            </div>
+          <div className="testimonials-track" style={{ padding: '40px 0' }}>
+            {[
+              { text: "Meu WhatsApp virou uma máquina de vendas. Em 3 dias o bot já tinha recuperado o valor do investimento inteiro.", name: "Carlos Mendes", role: "Imobiliária Mendes, SP", img: "https://i.pravatar.cc/150?u=carlos" },
+              { text: "O bot soa exatamente como minha equipe. Vários clientes me perguntaram se era a 'Carol' respondendo. É incrível.", name: "Ana Paula", role: "Clínica Estética Renova", img: "https://i.pravatar.cc/150?u=anapaula" },
+              { text: "Aumentei 40% no faturamento sem contratar ninguém. O AxonFlow atende mais clientes do que toda minha equipe junta.", name: "Rafael Santos", role: "E-commerce de Moda", img: "https://i.pravatar.cc/150?u=rafael" },
+              { text: "Antes eu passava horas respondendo no WhatsApp. Hoje acordo e já tenho agendamentos confirmados. Mudou minha vida.", name: "Mariana Lima", role: "Studio de Pilates, MG", img: "https://i.pravatar.cc/150?u=mariana" },
+              { text: "Surreal a facilidade de configuração. Subi meu PDF de vendas e a IA aprendeu todos os meus produtos na hora.", name: "Diego Ferreira", role: "Agência de Marketing", img: "https://i.pravatar.cc/150?u=diego" },
+              { text: "Meus clientes elogiam a rapidez no atendimento. O bot nunca dorme e sempre é educado, mesmo de madrugada.", name: "Juliana Costa", role: "Restaurante e Delivery", img: "https://i.pravatar.cc/150?u=juliana" },
+            ].map((t, i) => (
+              <motion.div 
+                key={i}
+                className="testimonial"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+                whileHover={{ 
+                  scale: 1.05, 
+                  rotateY: 5, 
+                  rotateX: 5, 
+                  boxShadow: "0 20px 40px rgba(0,230,118,0.1)",
+                  borderColor: "rgba(0,230,118,0.4)"
+                }}
+                style={{ transformStyle: 'preserve-3d', perspective: '1000px' }}
+              >
+                <div className="stars" style={{ transform: 'translateZ(20px)' }}>★★★★★</div>
+                <p className="testimonial-text" style={{ transform: 'translateZ(30px)' }}>"{t.text}"</p>
+                <div className="testimonial-author" style={{ transform: 'translateZ(40px)' }}>
+                  <div className="author-avatar" style={{ overflow: 'hidden', padding: 0, border: '2px solid rgba(0,230,118,0.3)' }}>
+                    <img src={t.img} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  <div>
+                    <div className="author-name">{t.name}</div>
+                    <div className="author-role">{t.role}</div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
