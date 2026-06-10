@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MercadoPagoConfig, PreApproval } from 'mercadopago';
 
-const client = new MercadoPagoConfig({ 
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-SEU_TOKEN_AQUI',
-  options: { timeout: 5000 }
-});
-
 const PLANS = {
   starter: { price: 97.00, title: "AxonFlow Starter - Assinatura Mensal" },
   pro: { price: 197.00, title: "AxonFlow Pro - Assinatura Mensal" },
@@ -13,6 +8,11 @@ const PLANS = {
 }
 
 export async function POST(req: NextRequest) {
+  const client = new MercadoPagoConfig({ 
+    accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-SEU_TOKEN_AQUI',
+    options: { timeout: 5000 }
+  });
+
   try {
     const body = await req.json();
     const { userEmail, plan } = body;
@@ -50,6 +50,9 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error("[MercadoPago Checkout Error]:", error);
-    return NextResponse.json({ error: "Erro ao gerar link de pagamento." }, { status: 500 });
+    return NextResponse.json({ 
+      error: "Erro ao gerar link de pagamento.", 
+      details: error.message || error.response?.data || error
+    }, { status: 500 });
   }
 }
