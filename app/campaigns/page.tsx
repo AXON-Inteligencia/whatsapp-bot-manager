@@ -44,7 +44,9 @@ import {
   Play,
   Pause,
   Link as LinkIcon,
-  Shield
+  Shield,
+  Wand2,
+  Loader2
 } from "lucide-react"
 import { toast } from "sonner"
 import Papa from "papaparse"
@@ -70,8 +72,14 @@ export default function CampaignsPage() {
   const [insertGroupLink, setInsertGroupLink] = useState(false)
   const [groupLinkUrl, setGroupLinkUrl] = useState("")
   const [insertEvery, setInsertEvery] = useState(5)
+  const [useAiSpin, setUseAiSpin] = useState(false)
   const [selectedContacts, setSelectedContacts] = useState<string[]>([])
   
+  // AI Copy Generator
+  const [isGeneratingCopy, setIsGeneratingCopy] = useState(false)
+  const [copyPrompt, setCopyPrompt] = useState("")
+  const [showCopyDialog, setShowCopyDialog] = useState(false)
+
   // Novos estados para contato manual
   const [manualName, setManualName] = useState("")
   const [manualPhone, setManualPhone] = useState("")
@@ -179,6 +187,39 @@ export default function CampaignsPage() {
     toast.success("Lista limpa com sucesso!")
   }
 
+  const handleGenerateCopy = async () => {
+    if (!selectedBotId) {
+      toast.error("Selecione um bot primeiro para gerar a copy.")
+      return
+    }
+    if (!copyPrompt.trim()) {
+      toast.error("Diga o que você quer vender ou avisar.")
+      return
+    }
+    
+    setIsGeneratingCopy(true)
+    try {
+      const res = await fetch("/api/ai/copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botId: selectedBotId, prompt: copyPrompt })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setMessage(data.copy)
+        setShowCopyDialog(false)
+        setCopyPrompt("")
+        toast.success("Mensagem persuasiva gerada!")
+      } else {
+        toast.error(data.error || "Falha ao gerar mensagem")
+      }
+    } catch (e) {
+      toast.error("Erro ao conectar com a IA")
+    } finally {
+      setIsGeneratingCopy(false)
+    }
+  }
+
   const startCampaign = async () => {
     if (!selectedBotId) {
       toast.error("Selecione um bot para disparar")
@@ -229,7 +270,26 @@ export default function CampaignsPage() {
       
       // Insere link do grupo a cada N mensagens
       if (insertGroupLink && groupLinkUrl && (i + 1) % insertEvery === 0) {
-        messageToSend = `${message}\n\n🔗 Junte-se ao nosso grupo:\n${groupLinkUrl}`
+        messageToSend = `${messageToSend}\n\n🔗 Junte-se ao nosso grupo:\n${groupLinkUrl}`
+      }
+
+      // AI Stealth Spin
+      if (useAiSpin) {
+        try {
+          const spinRes = await fetch("/api/ai/spin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ botId: selectedBotId, message: messageToSend })
+          })
+          if (spinRes.ok) {
+            const spinData = await spinRes.json()
+            if (spinData.success && spinData.message) {
+              messageToSend = spinData.message
+            }
+          }
+        } catch (e) {
+          console.error("Erro no AI Spin", e)
+        }
       }
 
       try {
@@ -326,7 +386,40 @@ export default function CampaignsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Mensagem</Label>
+                <div className="flex justify-between items-end">
+                  <Label>Mensagem</Label>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-7 text-xs bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 border-indigo-500/20"
+                    onClick={() => setShowCopyDialog(!showCopyDialog)}
+                  >
+                    <Wand2 className="w-3 h-3 mr-1" /> Gerar Copy com IA
+                  </Button>
+                </div>
+                
+                {showCopyDialog && (
+                  <div className="p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-md space-y-2 mb-2 animate-in fade-in zoom-in-95">
+                    <Label className="text-xs text-indigo-300">O que você deseja vender/anunciar?</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Ex: Promoção de 50% na pizza de calabresa só hoje..."
+                        value={copyPrompt}
+                        onChange={(e) => setCopyPrompt(e.target.value)}
+                        className="bg-secondary/50 border-indigo-500/30 text-sm h-8"
+                      />
+                      <Button 
+                        size="sm" 
+                        className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white"
+                        onClick={handleGenerateCopy}
+                        disabled={isGeneratingCopy}
+                      >
+                        {isGeneratingCopy ? <Loader2 className="w-3 h-3 animate-spin" /> : "Gerar"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <Textarea
                   placeholder="Digite a mensagem que será enviada para todos os contatos..."
                   className="bg-secondary border-border min-h-[100px]"
@@ -389,6 +482,23 @@ export default function CampaignsPage() {
                     </div>
                     <p className="text-xs text-green-500">✓ O link será inserido a cada {insertEvery} mensagens</p>
                   </>
+                )}
+              </div>
+
+              <div className="space-y-2 border-t border-border pt-3">
+                <Label className="flex items-center gap-2 text-primary font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={useAiSpin}
+                    onChange={(e) => setUseAiSpin(e.target.checked)}
+                    className="rounded text-primary focus:ring-primary"
+                  />
+                  🪄 AI Stealth Spin (Anti-Ban)
+                </Label>
+                {useAiSpin && (
+                  <p className="text-xs text-muted-foreground">
+                    A Inteligência Artificial reescreverá a mensagem para cada contato, tornando todas as mensagens únicas para evitar bloqueios do WhatsApp.
+                  </p>
                 )}
               </div>
 
@@ -584,21 +694,19 @@ export default function CampaignsPage() {
                                 </Badge>
                               )}
                             </div>
-                            {r.status === "pending" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                                onClick={() => {
-                                  const newResults = [...results]
-                                  newResults.splice(i, 1)
-                                  setResults(newResults)
-                                }}
-                                title="Remover da lista"
-                              >
-                                <XCircle className="w-4 h-4" />
-                              </Button>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                              onClick={() => {
+                                const newResults = [...results]
+                                newResults.splice(i, 1)
+                                setResults(newResults)
+                              }}
+                              title="Remover da lista"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
