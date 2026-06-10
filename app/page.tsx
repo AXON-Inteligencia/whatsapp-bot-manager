@@ -15,11 +15,8 @@ export default function LandingPage() {
           <span className="font-bold text-xl tracking-tight">AxonFlow</span>
         </div>
         <div className="flex gap-4">
-          <a href="https://dashboard.axoninteligencia.com.br/login">
-            <Button variant="ghost" className="text-zinc-300 hover:text-white hover:bg-white/5">Login</Button>
-          </a>
           <a href="https://dashboard.axoninteligencia.com.br/register">
-            <Button className="bg-white text-black hover:bg-zinc-200">Criar Conta</Button>
+            <Button className="bg-white text-black hover:bg-zinc-200">Criar meu Acesso</Button>
           </a>
         </div>
       </header>
