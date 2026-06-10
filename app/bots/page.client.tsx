@@ -98,6 +98,15 @@ export default function BotsPage() {
   const filteredBots = getFilteredBots()
 
   const handleCreate = async () => {
+    const plan = localStorage.getItem("axonflow_user_plan") || "free"
+    
+    // FREE PLAN GATEKEEPING
+    if (plan === "free" && bots.length >= 1) {
+      toast.error("Plano Gratuito permite apenas 1 Bot. Faça upgrade para adicionar mais.")
+      setIsCreateOpen(false)
+      return
+    }
+
     if (!formData.name || !formData.phone) {
       toast.error("Preencha todos os campos obrigatórios")
       return

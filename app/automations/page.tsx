@@ -58,6 +58,13 @@ export default function AutomationsPage() {
   const handleUpdate = async () => {
     if (!editingBot) return
 
+    const plan = localStorage.getItem("axonflow_user_plan") || "free"
+    if (plan === "free" && formData.enabled) {
+      toast.error("Assine o Plano Pro para ligar a Inteligência Artificial e salvar configurações.")
+      setEditingBot(null)
+      return
+    }
+
     try {
       await updateBot(editingBot.id, {
         aiSettings: {

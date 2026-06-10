@@ -8,10 +8,18 @@ const JWT_SECRET = new TextEncoder().encode(
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const hostname = request.headers.get("host") || ""
+
+  // Subdomain Routing: Se acessar dashboard.axon... na raiz, reescreve para /dashboard
+  if (hostname.startsWith("dashboard.") && pathname === "/") {
+    return NextResponse.rewrite(new URL("/dashboard", request.url))
+  }
 
   // Rotas que não precisam de autenticação
-  const publicPaths = ['/login', '/api/auth']
-  if (publicPaths.some(path => pathname.startsWith(path))) {
+  const publicPaths = ['/login', '/register', '/api/auth']
+  const isPublicPath = publicPaths.some(path => pathname.startsWith(path)) || pathname === '/'
+  
+  if (isPublicPath) {
     return NextResponse.next()
   }
 

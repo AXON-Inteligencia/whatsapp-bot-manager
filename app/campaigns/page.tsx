@@ -221,6 +221,12 @@ export default function CampaignsPage() {
   }
 
   const startCampaign = async () => {
+    const plan = localStorage.getItem("axonflow_user_plan") || "free"
+    if (plan === "free") {
+      toast.error("Assine o Plano Pro para disparar campanhas em massa.")
+      return
+    }
+
     if (!selectedBotId) {
       toast.error("Selecione um bot para disparar")
       return
