@@ -15,12 +15,12 @@ export default function LandingPage() {
           <span className="font-bold text-xl tracking-tight">AxonFlow</span>
         </div>
         <div className="flex gap-4">
-          <Link href="/login">
+          <a href="https://dashboard.axoninteligencia.com.br/login">
             <Button variant="ghost" className="text-zinc-300 hover:text-white hover:bg-white/5">Login</Button>
-          </Link>
-          <Link href="/register">
+          </a>
+          <a href="https://dashboard.axoninteligencia.com.br/register">
             <Button className="bg-white text-black hover:bg-zinc-200">Criar Conta</Button>
-          </Link>
+          </a>
         </div>
       </header>
 
@@ -40,11 +40,11 @@ export default function LandingPage() {
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-          <Link href="/register">
+          <a href="https://dashboard.axoninteligencia.com.br/register" className="w-full sm:w-auto">
             <Button size="lg" className="w-full sm:w-auto h-14 px-8 text-base bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 transition-opacity">
               Começar gratuitamente
             </Button>
-          </Link>
+          </a>
           <Link href="#demo">
             <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 text-base border-white/10 bg-white/5 hover:bg-white/10 text-white">
               Ver demonstração

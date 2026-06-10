@@ -27,7 +27,7 @@ export default function LoginPage() {
 
       if (res.ok) {
         // Redirecionar para a página principal (Dashboard)
-        router.push("/");
+        router.push("/dashboard");
       } else {
         setError(result.error || "Credenciais inválidas. Tente novamente.");
       }
