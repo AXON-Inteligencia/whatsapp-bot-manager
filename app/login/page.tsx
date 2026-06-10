@@ -26,6 +26,12 @@ export default function LoginPage() {
       const result = await res.json();
 
       if (res.ok) {
+        // Salvar role para controle de UI
+        if (result.user?.role) {
+          localStorage.setItem("axonflow_role", result.user.role);
+        } else {
+          localStorage.setItem("axonflow_role", "user");
+        }
         // Redirecionar para a página principal (Dashboard)
         router.push("/dashboard");
       } else {

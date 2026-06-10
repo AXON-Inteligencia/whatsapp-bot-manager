@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { LogOut } from "lucide-react"
@@ -48,10 +48,20 @@ export function DashboardSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+
+  useEffect(() => {
+    const role = localStorage.getItem("axonflow_role")
+    if (role === "admin") {
+      setIsAdmin(true)
+    }
+  }, [])
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" })
     localStorage.removeItem("whatsapp-admin-auth")
+    localStorage.removeItem("axonflow_role")
     router.push("/login")
   }
 
@@ -86,6 +96,8 @@ export function DashboardSidebar() {
             )}
           </div>
           {navigation.map((item) => {
+            if (item.name === "Admin" && !isAdmin) return null;
+            
             const isActive = pathname === item.href
             const LinkContent = (
               <Link
