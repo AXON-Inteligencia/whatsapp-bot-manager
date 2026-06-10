@@ -77,7 +77,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-6 py-4 rounded-2xl bg-white/50 border border-slate-200 focus:bg-white focus:border-green-500 focus:ring-4 focus:ring-green-500/10 transition-all outline-none text-slate-800 placeholder:text-slate-400"
-              placeholder="admin@axoninteligencia.com.br"
+              placeholder="seu@email.com"
               required
             />
           </div>
