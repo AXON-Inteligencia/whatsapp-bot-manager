@@ -145,7 +145,7 @@ export default function AutomationsPage() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingBot} onOpenChange={(open) => !open && setEditingBot(null)}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="sm:max-w-[600px] bg-card border-border max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
