@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Bot as BotIcon, 
   Settings,
@@ -39,30 +40,40 @@ export default function AutomationsPage() {
     enabled: false,
     apiKey: "",
     systemPrompt: "",
+    salesPrompt: "",
+    supportPrompt: ""
   })
 
   const openEditDialog = (bot: Bot) => {
     setFormData({
       enabled: bot.aiSettings?.enabled || false,
       apiKey: bot.aiSettings?.apiKey || "",
-      systemPrompt: bot.aiSettings?.systemPrompt || "Aja como um vendedor experiente do AxonFlow. Seu objetivo é responder dúvidas e convencer o cliente a assinar.",
+      systemPrompt: bot.aiSettings?.systemPrompt || "",
+      salesPrompt: bot.aiSettings?.salesPrompt || "",
+      supportPrompt: bot.aiSettings?.supportPrompt || ""
     })
     setEditingBot(bot)
   }
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingBot) return
 
-    updateBot(editingBot.id, {
-      aiSettings: {
-        enabled: formData.enabled,
-        apiKey: formData.apiKey,
-        systemPrompt: formData.systemPrompt,
-      }
-    })
-    
-    setEditingBot(null)
-    toast.success("Configurações de IA salvas com sucesso!")
+    try {
+      await updateBot(editingBot.id, {
+        aiSettings: {
+          enabled: formData.enabled,
+          apiKey: formData.apiKey,
+          systemPrompt: formData.systemPrompt,
+          salesPrompt: formData.salesPrompt,
+          supportPrompt: formData.supportPrompt
+        }
+      })
+      
+      setEditingBot(null)
+      toast.success("Cérebro de IA atualizado com sucesso!")
+    } catch (error) {
+      toast.error("Erro ao atualizar configurações")
+    }
   }
 
   return (
@@ -187,20 +198,38 @@ export default function AutomationsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="systemPrompt" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4" />
-                Comportamento (Treinamento do Vendedor)
+                Treinamento dos Cérebros (Vendas & Suporte)
               </Label>
-              <Textarea
-                id="systemPrompt"
-                placeholder="Aja como um vendedor experiente. Seja educado, tire dúvidas sobre o sistema AxonFlow e tente sempre fechar a venda do Plano Pro no valor de R$97. Nunca invente informações."
-                value={formData.systemPrompt}
-                onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
-                className="min-h-[120px] resize-y"
-              />
-              <p className="text-xs text-muted-foreground">
-                Descreva detalhadamente como o bot deve agir, quais produtos ele vende, o preço, e as regras que ele não pode quebrar.
-              </p>
+              <Tabs defaultValue="sales" className="w-full">
+                <TabsList className="w-full grid grid-cols-2">
+                  <TabsTrigger value="sales">🎯 Vendas</TabsTrigger>
+                  <TabsTrigger value="support">🛠 Suporte</TabsTrigger>
+                </TabsList>
+                <TabsContent value="sales">
+                  <Textarea
+                    placeholder="Aja como um vendedor experiente. Seja educado, tire dúvidas sobre o sistema e tente sempre fechar a venda..."
+                    value={formData.salesPrompt || formData.systemPrompt}
+                    onChange={(e) => setFormData({ ...formData, salesPrompt: e.target.value })}
+                    className="min-h-[120px] resize-y mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Comportamento do Cérebro de Vendas.
+                  </p>
+                </TabsContent>
+                <TabsContent value="support">
+                  <Textarea
+                    placeholder="Aja como um técnico de suporte amigável. Ajude o cliente a resolver problemas e forneça passo a passos claros..."
+                    value={formData.supportPrompt}
+                    onChange={(e) => setFormData({ ...formData, supportPrompt: e.target.value })}
+                    className="min-h-[120px] resize-y mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Comportamento do Cérebro de Suporte técnico.
+                  </p>
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
 

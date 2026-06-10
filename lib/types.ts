@@ -12,7 +12,9 @@ export interface Bot {
   aiSettings?: {
     enabled: boolean
     apiKey?: string
-    systemPrompt?: string
+    systemPrompt?: string // Legacy
+    salesPrompt?: string
+    supportPrompt?: string
   }
 }
 
@@ -62,4 +64,6 @@ export interface User {
   email: string
   password: string
   role: "admin" | "user"
+  plan?: "free" | "basic" | "pro" | "max"
+  paymentStatus?: "pending" | "active" | "cancelled"
 }

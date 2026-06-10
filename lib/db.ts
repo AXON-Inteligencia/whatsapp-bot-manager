@@ -67,24 +67,34 @@ async function insertUser(params: {
   email: string
   password: string
   role: "admin" | "user"
+  plan?: string
+  paymentStatus?: string
 }): Promise<User> {
   const idKind = await getUserIdColumnKind()
   const normalizedEmail = normalizeEmail(params.email)
+  const plan = params.plan || 'free'
+  const paymentStatus = params.paymentStatus || 'pending'
+
+  // Garantir que as colunas existem (migração rápida silenciosa)
+  try {
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(50) DEFAULT 'free';`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'pending';`
+  } catch (e) {}
 
   if (idKind === "numeric") {
     const { rows } = await sql`
-      INSERT INTO users (name, email, password, role)
-      VALUES (${params.name}, ${normalizedEmail}, ${params.password}, ${params.role})
-      RETURNING id, name, email, password, role;
+      INSERT INTO users (name, email, password, role, plan, payment_status)
+      VALUES (${params.name}, ${normalizedEmail}, ${params.password}, ${params.role}, ${plan}, ${paymentStatus})
+      RETURNING id, name, email, password, role, plan, payment_status as "paymentStatus";
     `
     return rows[0] as User
   }
 
   const id = params.id || generateUserId()
   const { rows } = await sql`
-    INSERT INTO users (id, name, email, password, role)
-    VALUES (${id}, ${params.name}, ${normalizedEmail}, ${params.password}, ${params.role})
-    RETURNING id, name, email, password, role;
+    INSERT INTO users (id, name, email, password, role, plan, payment_status)
+    VALUES (${id}, ${params.name}, ${normalizedEmail}, ${params.password}, ${params.role}, ${plan}, ${paymentStatus})
+    RETURNING id, name, email, password, role, plan, payment_status as "paymentStatus";
   `
   return rows[0] as User
 }

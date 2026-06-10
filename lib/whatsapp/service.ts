@@ -16,12 +16,48 @@ import path from 'path';
 import pino from 'pino';
 import { redis } from '../redis';
 import Groq from 'groq-sdk';
+import { logConversationStart, updateConversationMessage, initAnalyticsTable, updateConversationRoute } from '../analytics';
 
 const logger = pino({ level: 'info' });
 const SESSIONS_DIR = '/tmp/sessions';
 
 if (!fs.existsSync(SESSIONS_DIR)) {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+}
+
+// Fase 0.1 - Memória de Conversa
+const conversationHistory = new Map<string, any[]>();
+function appendToHistory(phoneNumber: string, role: 'user' | 'assistant', content: string) {
+  if (!conversationHistory.has(phoneNumber)) {
+    conversationHistory.set(phoneNumber, []);
+  }
+  const history = conversationHistory.get(phoneNumber)!;
+  history.push({ role, content });
+  if (history.length > 10) {
+    history.shift(); // Remove o mais antigo
+  }
+}
+function clearExpiredSessions() {
+  // Opcional: Limpar histórico completo periodicamente
+}
+
+// Fase 0.2 - Rate Limiting
+const rateLimits = new Map<string, { count: number; resetAt: number }>();
+function isRateLimited(phoneNumber: string): boolean {
+  const now = Date.now();
+  const limit = rateLimits.get(phoneNumber);
+  
+  if (!limit || now > limit.resetAt) {
+    rateLimits.set(phoneNumber, { count: 1, resetAt: now + 60000 });
+    return false;
+  }
+  
+  if (limit.count >= 10) {
+    return true;
+  }
+  
+  limit.count++;
+  return false;
 }
 
 /**
@@ -114,6 +150,9 @@ export class WhatsAppService {
 
   static async connect(botId: string) {
     console.log(`[WhatsAppService] Iniciando conexão para o bot: ${botId}`);
+    
+    // Inicializa a tabela de analytics se não existir
+    await initAnalyticsTable();
     
     // Limpar instância anterior se existir
     if (this.instances.has(botId)) {
@@ -258,38 +297,102 @@ export class WhatsAppService {
         const bot = bots.find((b: any) => b.id === botId);
         if (!bot || !bot.aiSettings?.enabled || !bot.aiSettings?.apiKey) return;
 
+        // Rate Limiting (Fase 0.2)
+        if (isRateLimited(contactPhone)) {
+          await sock.sendMessage(remoteJid, { text: "Muitas mensagens em pouco tempo. Aguarde um momento. 🙏" });
+          return;
+        }
+
         console.log(`[WhatsAppService] Mensagem recebida no bot ${botId} de ${remoteJid}: ${textMessage}`);
         
         await sock.sendPresenceUpdate('composing', remoteJid);
         const apiKey = bot.aiSettings.apiKey.trim();
         const groq = new Groq({ apiKey });
 
-        const systemPrompt = `COMPORTAMENTO DO VENDEDOR (Siga estritamente):
-${bot.aiSettings.systemPrompt || "Você é um assistente prestativo."}
+        // Analytics & Memória (Fase 0.1 e 0.4)
+        const isNewSession = !conversationHistory.has(contactPhone);
+        if (isNewSession) {
+          await logConversationStart(contactPhone, 'whatsapp');
+        } else {
+          await updateConversationMessage(contactPhone);
+        }
+
+        const history = conversationHistory.get(contactPhone) || [];
+
+        // Roteador de Intenção (Fase 1.1)
+        let intent: 'sales' | 'support' = 'sales'; // Default
+        try {
+          const recentHistory = history.slice(-4).map(h => `${h.role}: ${h.content}`).join('\\n');
+          const ROUTER_PROMPT = `
+Você é um classificador de intenção de mensagens para um chatbot comercial.
+Analise a mensagem do cliente e o histórico recente e responda APENAS com uma palavra: "vendas" ou "suporte".
+
+Regras de classificação:
+- "vendas": cliente quer comprar, saber preço, conhecer o produto, fazer upgrade, tem dúvida antes de comprar
+- "suporte": cliente já é usuário e tem dúvida técnica, problema para usar, reclamação, solicitação de cancelamento
+
+Mensagem atual: "${textMessage}"
+Histórico recente:
+${recentHistory}
+
+Responda apenas: vendas ou suporte`;
+
+          const routerCompletion = await groq.chat.completions.create({
+            messages: [{ role: 'user', content: ROUTER_PROMPT }],
+            model: 'llama-3.1-8b-instant',
+            temperature: 0.1,
+            max_completion_tokens: 10,
+          });
+          
+          const routerOutput = (routerCompletion.choices[0]?.message?.content || "").toLowerCase().trim();
+          if (routerOutput.includes('suporte')) {
+            intent = 'support';
+          }
+          await updateConversationRoute(contactPhone, intent);
+        } catch (routerErr) {
+          console.error('[Roteador] Erro na classificação, caindo para vendas por padrão', routerErr);
+        }
+
+        // Seleciona o Prompt correto (Fase 1.2)
+        const botSalesPrompt = bot.aiSettings.salesPrompt || bot.aiSettings.systemPrompt || "Você é um vendedor focado.";
+        const botSupportPrompt = bot.aiSettings.supportPrompt || "Você é um suporte técnico prestativo.";
+        
+        let systemPromptText = intent === 'sales' ? botSalesPrompt : botSupportPrompt;
+
+        const systemPrompt = `COMPORTAMENTO (Modo: ${intent === 'sales' ? 'VENDAS' : 'SUPORTE'}):
+${systemPromptText}
 
 INSTRUÇÕES IMPORTANTES:
-- Se o cliente enviar palavras curtas como "teste", "testando", "oi", responda de forma amigável dizendo que você (o sistema) está operante e pergunte como pode ajudar.
 - NUNCA invente informações.
-- Responda SEMPRE em português do Brasil, seja natural, humano e focado na conversão se for o caso.`;
+- Responda SEMPRE em português do Brasil, seja natural, humano e focado.`;
 
-        const chatCompletion = await groq.chat.completions.create({
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt
-            },
-            {
-              role: 'user',
-              content: textMessage
-            }
-          ],
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.5,
-          max_completion_tokens: 1024,
-          top_p: 1,
-        });
+        appendToHistory(contactPhone, 'user', textMessage);
 
-        const responseText = chatCompletion.choices[0]?.message?.content || "Desculpe, não consegui processar sua mensagem.";
+        // AbortController para Fallback de Timeout (Fase 0.3)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        let responseText = "Desculpe, não consegui processar sua mensagem.";
+        try {
+          const chatCompletion = await groq.chat.completions.create({
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...conversationHistory.get(contactPhone)!
+            ],
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.5,
+            max_completion_tokens: 1024,
+            top_p: 1,
+          }, { signal: controller.signal as any });
+          
+          clearTimeout(timeoutId);
+          responseText = chatCompletion.choices[0]?.message?.content || responseText;
+          appendToHistory(contactPhone, 'assistant', responseText);
+        } catch (apiErr: any) {
+          clearTimeout(timeoutId);
+          console.error(`[WhatsAppService] Erro na API Groq ou Timeout:`, apiErr);
+          responseText = "Estou com uma instabilidade agora. Tente novamente em instantes! 🙏";
+        }
 
         // Simula digitação (mínimo 1s, máximo 4s - Groq é rápido)
         const delay = Math.min(Math.max(responseText.length * 20, 1000), 4000);
@@ -322,9 +425,12 @@ INSTRUÇÕES IMPORTANTES:
         
       } catch (err: any) {
         const errorMessage = err?.message || String(err);
-        console.error(`[WhatsAppService] Erro Crítico na Inteligência Artificial:`, errorMessage);
+        console.error(`[WhatsAppService] Erro Crítico na Inteligência Artificial: [${contactPhone}]`, errorMessage);
         
-        if (remoteJid) await sock.sendPresenceUpdate('paused', remoteJid).catch(() => {});
+        if (remoteJid) {
+          await sock.sendPresenceUpdate('paused', remoteJid).catch(() => {});
+          await sock.sendMessage(remoteJid, { text: "Estou com uma instabilidade agora. Tente novamente em instantes! 🙏" }).catch(() => {});
+        }
 
         // SALVAR O ERRO NO PAINEL PARA O USUÁRIO VER
         try {

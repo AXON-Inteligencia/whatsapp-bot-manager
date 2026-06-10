@@ -98,6 +98,39 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Integração Instagram (Fase 2) */}
+          <Card className="bg-card border-border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.1)]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 bg-clip-text text-transparent text-xl font-bold">Instagram</span>
+                Integração Oficial (Meta)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="metaToken">Page Access Token (Meta Developers)</Label>
+                <Input
+                  id="metaToken"
+                  type="password"
+                  placeholder="EAAI..."
+                  className="mt-1 bg-background border-border"
+                />
+              </div>
+              <div>
+                <Label htmlFor="instaAccountId">Instagram Business Account ID</Label>
+                <Input
+                  id="instaAccountId"
+                  type="text"
+                  placeholder="178414..."
+                  className="mt-1 bg-background border-border"
+                />
+              </div>
+              <Button type="button" variant="outline" className="w-full sm:w-auto border-purple-500/50 hover:bg-purple-500/10 text-purple-400">
+                Testar Conexão
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Notificações */}
           <Card className="bg-card border-border">
             <CardHeader>
