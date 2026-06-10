@@ -61,7 +61,7 @@ async function getUserIdColumnKind(): Promise<IdColumnKind> {
   }
 }
 
-async function insertUser(params: {
+export async function insertUser(params: {
   id?: string
   name: string
   email: string
