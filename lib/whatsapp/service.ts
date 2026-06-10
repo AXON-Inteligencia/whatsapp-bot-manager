@@ -15,7 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
 import { redis } from '../redis';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 
 const logger = pino({ level: 'info' });
 const SESSIONS_DIR = '/tmp/sessions';
@@ -252,7 +252,7 @@ export class WhatsAppService {
       // SE FOR MENSAGEM MINHA, NÃO CHAMA A IA
       if (isFromMe) return;
 
-      // LÓGICA DA IA (GEMINI)
+      // LÓGICA DA IA (GROQ CLOUD)
       try {
         const bots: any[] = await redis.get('axon:bots') || [];
         const bot = bots.find((b: any) => b.id === botId);
@@ -262,35 +262,37 @@ export class WhatsAppService {
         
         await sock.sendPresenceUpdate('composing', remoteJid);
         const apiKey = bot.aiSettings.apiKey.trim();
-        const genAI = new GoogleGenerativeAI(apiKey);
+        const groq = new Groq({ apiKey });
 
-        const prompt = `COMPORTAMENTO DO VENDEDOR (Siga estritamente):
+        const systemPrompt = `COMPORTAMENTO DO VENDEDOR (Siga estritamente):
 ${bot.aiSettings.systemPrompt || "Você é um assistente prestativo."}
 
 INSTRUÇÕES IMPORTANTES:
 - Se o cliente enviar palavras curtas como "teste", "testando", "oi", responda de forma amigável dizendo que você (o sistema) está operante e pergunte como pode ajudar.
 - NUNCA invente informações.
-- Responda SEMPRE em português do Brasil, seja natural, humano e focado na conversão se for o caso.
+- Responda SEMPRE em português do Brasil, seja natural, humano e focado na conversão se for o caso.`;
 
-MENSAGEM DO CLIENTE:
-"${textMessage}"
+        const chatCompletion = await groq.chat.completions.create({
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt
+            },
+            {
+              role: 'user',
+              content: textMessage
+            }
+          ],
+          model: 'llama-3.3-70b-versatile',
+          temperature: 0.5,
+          max_completion_tokens: 1024,
+          top_p: 1,
+        });
 
-SUA RESPOSTA:`;
+        const responseText = chatCompletion.choices[0]?.message?.content || "Desculpe, não consegui processar sua mensagem.";
 
-        let responseText = "";
-        try {
-          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-          const result = await model.generateContent(prompt);
-          responseText = result.response.text();
-        } catch (flashError) {
-          console.warn("[WhatsAppService] Falha no flash, tentando gemini-pro...", flashError);
-          const modelFallback = genAI.getGenerativeModel({ model: "gemini-pro" });
-          const resultFallback = await modelFallback.generateContent(prompt);
-          responseText = resultFallback.response.text();
-        }
-
-        // Simula digitação (mínimo 2s, máximo 7s)
-        const delay = Math.min(Math.max(responseText.length * 30, 2000), 7000);
+        // Simula digitação (mínimo 1s, máximo 4s - Groq é rápido)
+        const delay = Math.min(Math.max(responseText.length * 20, 1000), 4000);
         await new Promise(r => setTimeout(r, delay));
 
         await sock.sendPresenceUpdate('paused', remoteJid);
@@ -333,7 +335,7 @@ SUA RESPOSTA:`;
           if (conv) {
             conv.messages.push({
               id: Math.random().toString(36).substr(2, 9),
-              content: `⚠️ [ERRO NA IA]: Falha ao gerar resposta. Verifique se a Chave API do Gemini está correta e sem espaços. Erro técnico: ${errorMessage}`,
+              content: `⚠️ [ERRO NA IA]: Falha ao gerar resposta. Verifique se a Chave API do Groq Cloud está correta. Erro técnico: ${errorMessage}`,
               sender: 'bot',
               time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
               timestamp: new Date().toISOString()

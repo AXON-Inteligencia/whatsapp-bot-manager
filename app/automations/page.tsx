@@ -171,18 +171,18 @@ export default function AutomationsPage() {
             <div className="space-y-2">
               <Label htmlFor="apiKey" className="flex items-center gap-2">
                 <Key className="w-4 h-4" />
-                Chave de API do Gemini (Gratuita)
+                Chave de API do Groq Cloud (Gratuita)
               </Label>
               <Input
                 id="apiKey"
                 type="password"
-                placeholder="AQ. ou AIzaSy..."
+                placeholder="gsk_..."
                 value={formData.apiKey}
                 onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                Pegue sua chave gratuitamente no <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer" className="text-primary hover:underline">Google AI Studio</a>.
+                Pegue sua chave gratuitamente no <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-primary hover:underline">Groq Console</a>.
               </p>
             </div>
 
