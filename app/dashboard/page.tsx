@@ -14,10 +14,36 @@ import { Lock, Sparkles, CheckCircle2 } from "lucide-react"
 
 export default function DashboardPage() {
   const [userPlan, setUserPlan] = useState<string | null>(null)
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false)
 
   useEffect(() => {
     setUserPlan(localStorage.getItem("axonflow_user_plan") || "free")
   }, [])
+
+  const handleSubscribe = async () => {
+    setIsCheckoutLoading(true)
+    try {
+      const email = "contato@empresa.com" // Em produção, pegue o email do usuário logado do estado global ou JWT
+      const res = await fetch("/api/payments/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userEmail: email })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl // Redireciona para o Mercado Pago
+        }
+      } else {
+        console.error("Falha ao gerar link de pagamento")
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsCheckoutLoading(false)
+    }
+  }
 
   return (
     <DashboardLayout 
@@ -48,8 +74,12 @@ export default function DashboardPage() {
             <div className="flex flex-col items-center gap-3 bg-black/40 p-6 rounded-2xl border border-white/10 shrink-0">
               <span className="text-sm text-zinc-400 uppercase tracking-wider font-bold">Plano Pro</span>
               <div className="text-3xl font-bold text-white">R$ 297<span className="text-sm font-normal text-zinc-400">/mês</span></div>
-              <Button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white shadow-lg mt-2">
-                Assinar Agora
+              <Button 
+                onClick={handleSubscribe}
+                disabled={isCheckoutLoading}
+                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white shadow-lg mt-2"
+              >
+                {isCheckoutLoading ? "Gerando PIX..." : "Assinar Agora"}
               </Button>
             </div>
           </CardContent>
