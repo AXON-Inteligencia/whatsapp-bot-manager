@@ -279,12 +279,12 @@ SUA RESPOSTA:`;
 
         let responseText = "";
         try {
-          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
           const result = await model.generateContent(prompt);
           responseText = result.response.text();
         } catch (flashError) {
-          console.warn("[WhatsAppService] Falha no flash-latest, tentando gemini-1.5-pro-latest...", flashError);
-          const modelFallback = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
+          console.warn("[WhatsAppService] Falha no flash, tentando gemini-pro...", flashError);
+          const modelFallback = genAI.getGenerativeModel({ model: "gemini-pro" });
           const resultFallback = await modelFallback.generateContent(prompt);
           responseText = resultFallback.response.text();
         }
