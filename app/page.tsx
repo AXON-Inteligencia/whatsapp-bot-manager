@@ -2,8 +2,54 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
+import { motion, AnimatePresence } from "framer-motion"
+
+function SplashScreen({ onComplete }: { onComplete: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onComplete()
+    }, 2500)
+    return () => clearTimeout(timer)
+  }, [onComplete])
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#0D0D0F]"
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: 0.8, ease: "easeInOut" } }}
+    >
+      <motion.div
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 1, ease: "easeOut" }}
+        className="relative w-48 h-48 flex items-center justify-center"
+      >
+        <motion.div
+          animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          className="relative w-full h-full z-10"
+        >
+          <Image
+            src="/login-logo.png"
+            alt="AxonFlow Logo"
+            fill
+            className="object-contain drop-shadow-[0_0_30px_rgba(0,230,118,0.6)]"
+            priority
+          />
+        </motion.div>
+        <motion.div
+          animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute inset-0 bg-[#00E676]/30 blur-[60px] rounded-full"
+        />
+      </motion.div>
+    </motion.div>
+  )
+}
 
 export default function LandingPage() {
+  const [showSplash, setShowSplash] = useState(true)
   const [navScrolled, setNavScrolled] = useState(false)
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
   const wppBodyRef = useRef<HTMLDivElement>(null)
@@ -84,8 +130,18 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="landing-wrapper">
-      <nav id="navbar" className={navScrolled ? 'scrolled' : ''}>
+    <>
+      <AnimatePresence>
+        {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+      </AnimatePresence>
+
+      <div className={`landing-wrapper ${showSplash ? 'h-screen overflow-hidden' : ''}`}>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: showSplash ? 0 : 1 }}
+          transition={{ duration: 1, delay: 0.5 }}
+        >
+          <nav id="navbar" className={navScrolled ? 'scrolled' : ''}>
         <div className="nav-inner">
           <Link href="#" className="nav-logo">Axon<span>Flow</span></Link>
           <ul className="nav-links">
@@ -418,6 +474,8 @@ export default function LandingPage() {
           <div className="footer-copy">© 2026 AxonFlow Inteligência. Todos os direitos reservados.</div>
         </div>
       </footer>
-    </div>
+        </motion.div>
+      </div>
+    </>
   )
 }
