@@ -10,8 +10,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const hostname = request.headers.get("host") || ""
 
-  // Removido a regra de subdomínio para evitar conflitos.
-  // O sistema inteiro agora funciona como o Dashboard puro.
+  // Subdomain Routing: Se acessar dashboard.axon... na raiz, reescreve para /dashboard
+  if (hostname.startsWith("dashboard.") && pathname === "/") {
+    return NextResponse.rewrite(new URL("/dashboard", request.url))
+  }
 
   // Rotas que não precisam de autenticação
   const publicPaths = ['/login', '/register', '/api/auth']
