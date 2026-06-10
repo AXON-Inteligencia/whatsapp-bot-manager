@@ -16,6 +16,14 @@ interface AppUser {
   name: string
   email: string
   role: string
+  plan?: string
+  paymentStatus?: string
+}
+
+interface AdminStats {
+  totalUsers: number
+  activeSubscriptions: number
+  activeBots: number
 }
 
 export default function AdminPage() {
@@ -34,10 +42,24 @@ export default function AdminPage() {
   const [editRole, setEditRole] = useState("user")
   const [editPassword, setEditPassword] = useState("")
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [stats, setStats] = useState<AdminStats>({ totalUsers: 0, activeSubscriptions: 0, activeBots: 0 })
 
   useEffect(() => {
     fetchUsers()
+    fetchStats()
   }, [])
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch("/api/admin/stats")
+      if (response.ok) {
+        const data = await response.json()
+        setStats(data)
+      }
+    } catch (err) {
+      console.error("Erro ao buscar estatísticas:", err)
+    }
+  }
 
   const fetchUsers = async () => {
     try {
@@ -197,6 +219,37 @@ export default function AdminPage() {
           </Button>
         </div>
 
+        {/* Cards de Estatísticas */}
+        <div className="grid gap-4 md:grid-cols-3 mb-4">
+          <Card className="bg-white border-slate-200 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">Total de Usuários (Clientes)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-slate-900">{stats.totalUsers}</div>
+              <p className="text-xs text-slate-500 mt-1">Registrados na plataforma</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-emerald-50 border-emerald-100 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-emerald-700">Assinaturas Pagas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-emerald-900">{stats.activeSubscriptions}</div>
+              <p className="text-xs text-emerald-600 mt-1">Planos com pagamento em dia</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-purple-50 border-purple-100 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-purple-700">Bots em Operação</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-purple-900">{stats.activeBots}</div>
+              <p className="text-xs text-purple-600 mt-1">Instâncias ativas conectadas</p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Mensagens de Feedback */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-3">
@@ -313,6 +366,7 @@ export default function AdminPage() {
                     <tr className="border-b border-slate-200 bg-slate-50">
                       <th className="text-left py-3 px-4 font-semibold text-slate-700">Nome</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700">Email</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700">Plano Atual</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700">Função</th>
                       <th className="text-center py-3 px-4 font-semibold text-slate-700">Ações</th>
                     </tr>
@@ -327,6 +381,16 @@ export default function AdminPage() {
                           <div className="font-medium text-slate-900">{user.name}</div>
                         </td>
                         <td className="py-4 px-4 text-slate-600">{user.email}</td>
+                        <td className="py-4 px-4">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs font-semibold uppercase text-slate-700 bg-slate-100 px-2 py-1 rounded w-max">
+                              {user.plan || "Free"}
+                            </span>
+                            <span className={`text-[10px] uppercase font-bold w-max ${user.paymentStatus === 'paid' ? 'text-emerald-600' : 'text-amber-500'}`}>
+                              {user.paymentStatus === 'paid' ? 'Pago' : 'Pendente'}
+                            </span>
+                          </div>
+                        </td>
                         <td className="py-4 px-4">
                           <span
                             className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${

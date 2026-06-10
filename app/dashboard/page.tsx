@@ -20,14 +20,14 @@ export default function DashboardPage() {
     setUserPlan(localStorage.getItem("axonflow_user_plan") || "free")
   }, [])
 
-  const handleSubscribe = async () => {
+  const handleSubscribe = async (planName: string) => {
     setIsCheckoutLoading(true)
     try {
       const email = "contato@empresa.com" // Em produção, pegue o email do usuário logado do estado global ou JWT
       const res = await fetch("/api/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userEmail: email })
+        body: JSON.stringify({ userEmail: email, plan: planName })
       })
 
       if (res.ok) {
@@ -51,39 +51,97 @@ export default function DashboardPage() {
       description="Bem-vindo de volta! Aqui esta um resumo dos seus bots."
     >
       {userPlan === "free" && (
-        <Card className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 border-purple-500/50 mb-8 relative overflow-hidden shadow-[0_0_30px_rgba(168,85,247,0.15)]">
-          <div className="absolute top-0 right-0 p-4 opacity-10">
-            <Lock className="w-32 h-32" />
+        <div className="mb-8">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-white mb-2">Desbloqueie o Poder do AxonFlow</h2>
+            <p className="text-zinc-400">Você está no plano gratuito (apenas visualização). Escolha um plano para ativar seus robôs e começar a vender no automático.</p>
           </div>
-          <CardContent className="p-8 relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-5 h-5 text-yellow-400" />
-                <h2 className="text-2xl font-bold text-white">Desbloqueie o AxonFlow Pro</h2>
-              </div>
-              <p className="text-zinc-300 max-w-xl mb-4">
-                Você está no plano gratuito. Para criar múltiplos robôs, ativar a Inteligência Artificial avançada, o Roteador de Vendas e o Stealth Spin, você precisa assinar um plano.
-              </p>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-zinc-300">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-400"/> Múltiplos Bots</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-400"/> Integração Instagram</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-400"/> AI Stealth Spin Anti-Ban</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-400"/> Roteador (Vendas/Suporte)</li>
-              </ul>
-            </div>
-            <div className="flex flex-col items-center gap-3 bg-black/40 p-6 rounded-2xl border border-white/10 shrink-0">
-              <span className="text-sm text-zinc-400 uppercase tracking-wider font-bold">Plano Pro</span>
-              <div className="text-3xl font-bold text-white">R$ 297<span className="text-sm font-normal text-zinc-400">/mês</span></div>
-              <Button 
-                onClick={handleSubscribe}
-                disabled={isCheckoutLoading}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white shadow-lg mt-2"
-              >
-                {isCheckoutLoading ? "Gerando PIX..." : "Assinar Agora"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Starter Plan */}
+            <Card className="bg-black/40 border-zinc-800 relative overflow-hidden flex flex-col hover:border-zinc-700 transition-colors">
+              <CardContent className="p-6 flex flex-col flex-1">
+                <div className="mb-4">
+                  <h3 className="text-xl font-bold text-white">Starter</h3>
+                  <p className="text-sm text-zinc-400">Ideal para iniciantes</p>
+                </div>
+                <div className="mb-6">
+                  <span className="text-3xl font-bold text-white">R$ 97</span>
+                  <span className="text-zinc-500">/mês</span>
+                </div>
+                <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-300">
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> 1 Bot Ativo</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> 1.000 Mensagens/mês</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Suporte via Email</li>
+                </ul>
+                <Button 
+                  onClick={() => handleSubscribe('starter')}
+                  disabled={isCheckoutLoading}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-white"
+                >
+                  {isCheckoutLoading ? "Aguarde..." : "Assinar Starter"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Pro Plan */}
+            <Card className="bg-gradient-to-b from-purple-900/20 to-blue-900/20 border-purple-500/50 relative overflow-hidden flex flex-col shadow-[0_0_30px_rgba(168,85,247,0.1)]">
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-purple-500 to-blue-500"></div>
+              <CardContent className="p-6 flex flex-col flex-1">
+                <div className="mb-4 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Pro</h3>
+                    <p className="text-sm text-zinc-400">Para negócios em expansão</p>
+                  </div>
+                  <Sparkles className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div className="mb-6">
+                  <span className="text-3xl font-bold text-white">R$ 197</span>
+                  <span className="text-zinc-500">/mês</span>
+                </div>
+                <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-300">
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Até 3 Bots Ativos</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> 5.000 Mensagens/mês</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Roteador de Atendimento</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Disparo de Campanhas</li>
+                </ul>
+                <Button 
+                  onClick={() => handleSubscribe('pro')}
+                  disabled={isCheckoutLoading}
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 text-white shadow-lg"
+                >
+                  {isCheckoutLoading ? "Aguarde..." : "Assinar Pro"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Enterprise Plan */}
+            <Card className="bg-black/40 border-zinc-800 relative overflow-hidden flex flex-col hover:border-zinc-700 transition-colors">
+              <CardContent className="p-6 flex flex-col flex-1">
+                <div className="mb-4">
+                  <h3 className="text-xl font-bold text-white">Enterprise</h3>
+                  <p className="text-sm text-zinc-400">Operações em grande escala</p>
+                </div>
+                <div className="mb-6">
+                  <span className="text-3xl font-bold text-white">R$ 497</span>
+                  <span className="text-zinc-500">/mês</span>
+                </div>
+                <ul className="space-y-3 mb-6 flex-1 text-sm text-zinc-300">
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Bots Ilimitados</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Mensagens Ilimitadas</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> AI Stealth Spin (Anti-Ban)</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Suporte Prioritário VIP</li>
+                </ul>
+                <Button 
+                  onClick={() => handleSubscribe('enterprise')}
+                  disabled={isCheckoutLoading}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-white"
+                >
+                  {isCheckoutLoading ? "Aguarde..." : "Assinar Enterprise"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       )}
 
       <StatsCards />

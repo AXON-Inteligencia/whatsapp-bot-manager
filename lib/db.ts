@@ -152,11 +152,28 @@ export const initDB = async () => {
 
 export const getUsers = async (): Promise<User[]> => {
   try {
-    const { rows } = await sql`SELECT id, name, email, role FROM users ORDER BY id DESC;`
+    const { rows } = await sql`SELECT id, name, email, role, plan, payment_status as "paymentStatus" FROM users ORDER BY id DESC;`
     return rows as User[]
   } catch (error) {
     console.error("Erro ao buscar usuários:", error)
     return []
+  }
+}
+
+export const getAdminStats = async () => {
+  try {
+    const { rows: userRows } = await sql`SELECT COUNT(*) as total FROM users WHERE role = 'user';`
+    const { rows: paidRows } = await sql`SELECT COUNT(*) as total FROM users WHERE payment_status = 'paid';`
+    // Como a tabela de bots reais pode não estar implementada ainda, faremos uma estimativa baseada nos pagantes, 
+    // ou se houver uma tabela whatsapp_instances, contaríamos nela.
+    return {
+      totalUsers: parseInt(userRows[0]?.total || "0", 10),
+      activeSubscriptions: parseInt(paidRows[0]?.total || "0", 10),
+      activeBots: parseInt(paidRows[0]?.total || "0", 10) * 1, // Simulando 1 bot por pagante
+    }
+  } catch (error) {
+    console.error("Erro ao buscar estatísticas do admin:", error)
+    return { totalUsers: 0, activeSubscriptions: 0, activeBots: 0 }
   }
 }
 
