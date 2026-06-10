@@ -88,9 +88,6 @@ export default function LandingPage() {
               <a href="https://dashboard.axoninteligencia.com.br/login">
                 <Button variant="ghost" className="text-zinc-300 hover:text-white hidden sm:flex">Login</Button>
               </a>
-              <a href="https://dashboard.axoninteligencia.com.br/register">
-                <Button className="bg-white text-black hover:bg-zinc-200 shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all hover:scale-105">Começar</Button>
-              </a>
             </div>
           </header>
 
