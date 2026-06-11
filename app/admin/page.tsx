@@ -43,6 +43,7 @@ export default function AdminPage() {
   const [editRole, setEditRole] = useState("user")
   const [editPlan, setEditPlan] = useState("starter")
   const [editPassword, setEditPassword] = useState("")
+  const [editPaymentStatus, setEditPaymentStatus] = useState("pending")
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [stats, setStats] = useState<AdminStats>({ totalUsers: 0, activeSubscriptions: 0, activeBots: 0 })
 
@@ -95,7 +96,7 @@ export default function AdminPage() {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role, plan, paymentStatus: "active" }),
+        body: JSON.stringify({ name, email, password, role, plan, paymentStatus: "paid" }),
       })
 
       const result = await response.json()
@@ -150,6 +151,7 @@ export default function AdminPage() {
     setEditEmail(user.email)
     setEditRole(user.role)
     setEditPlan(user.plan || "free")
+    setEditPaymentStatus(user.paymentStatus || "pending")
     setEditPassword("")
   }
 
@@ -170,6 +172,7 @@ export default function AdminPage() {
           email: editEmail,
           role: editRole,
           plan: editPlan,
+          paymentStatus: editPaymentStatus,
           ...(editPassword && { password: editPassword }),
         }),
       })
@@ -500,6 +503,17 @@ export default function AdminPage() {
                       <option value="enterprise">Enterprise</option>
                     </select>
                   </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold text-slate-700">Status do Pagamento</Label>
+                  <select
+                    value={editPaymentStatus}
+                    onChange={(e) => setEditPaymentStatus(e.target.value)}
+                    className="mt-1.5 w-full px-3 py-2 border border-slate-300 rounded-md focus:border-emerald-500"
+                  >
+                    <option value="pending">Pendente</option>
+                    <option value="paid">Pago</option>
+                  </select>
                 </div>
                 <div>
                   <Label className="text-sm font-semibold text-slate-700">

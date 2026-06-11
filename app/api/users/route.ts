@@ -88,3 +88,45 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+export async function PUT(request: Request) {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: "Acesso negado" }, { status: 403 })
+  }
+
+  try {
+    const { id, name, email, role, plan, paymentStatus, password } = await request.json()
+
+    if (!id || !name || !email) {
+      return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
+    }
+
+    const { supabase } = await import('@/lib/supabase');
+    const updateData: any = { 
+      name, 
+      email: email.trim().toLowerCase(), 
+      role, 
+      plan,
+      payment_status: paymentStatus 
+    };
+
+    if (password) {
+      const bcrypt = await import('bcryptjs');
+      updateData.password = await bcrypt.hash(password, 10);
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', id);
+
+    if (error) {
+      return NextResponse.json({ error: "Erro ao atualizar usuário no Supabase" }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error("Erro ao atualizar usuário:", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
