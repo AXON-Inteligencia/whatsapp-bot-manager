@@ -12,14 +12,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Validar se o bot está conectado
-    const status = await WhatsAppService.getStatus(botId);
+    const status = await redisRest.get(`status:${botId}`);
     if (status !== 'online') {
       return NextResponse.json({ error: 'Bot não está conectado' }, { status: 400 });
     }
 
     const formattedPhone = phone.replace(/\D/g, '') + '@s.whatsapp.net';
 
-    // Se useQueue é true, adicionar à fila
+    // Se useQueue é true, adicionar à fila (MANTIDO)
     if (useQueue) {
       try {
         const jobId = await addMessageToQueue(botId, formattedPhone, message, {
@@ -38,26 +38,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Envio síncrono
+    // Envio síncrono via MOTOR
     try {
-      let result;
+      const MOTOR_URL = process.env.MOTOR_URL || 'http://localhost:10000';
+      
+      const response = await fetch(`${MOTOR_URL}/api/whatsapp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          botId, 
+          to: formattedPhone, 
+          message, 
+          mediaUrl, 
+          mediaType 
+        }),
+      });
 
-      if (mediaUrl && mediaType) {
-        result = await WhatsAppService.sendMessageWithMedia(
-          botId,
-          formattedPhone,
-          message,
-          mediaUrl,
-          mediaType
-        );
-      } else {
-        result = await WhatsAppService.sendMessage(botId, formattedPhone, message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        return NextResponse.json({ error: data.error || 'Erro ao enviar via motor' }, { status: response.status });
       }
 
       return NextResponse.json({
         message: 'Mensagem enviada com sucesso',
         phone,
-        messageId: result.key.id,
         sentAt: new Date().toISOString(),
       });
     } catch (error: any) {

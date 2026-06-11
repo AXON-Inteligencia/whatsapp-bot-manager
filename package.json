@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "start:motor": "tsx motor/server.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -53,8 +54,11 @@
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "cookie": "^1.1.1",
+    "cors": "^2.8.6",
     "date-fns": "4.1.0",
+    "dotenv": "^17.4.2",
     "embla-carousel-react": "8.6.0",
+    "express": "^5.2.1",
     "framer-motion": "^12.40.0",
     "groq-sdk": "^1.2.1",
     "input-otp": "1.4.2",
@@ -91,6 +95,8 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^20.17.14",
     "@types/papaparse": "^5.3.15",
     "@types/pg": "^8.20.0",
@@ -101,6 +107,7 @@
     "eslint": "^9.18.0",
     "eslint-config-next": "15.1.7",
     "postcss": "^8.5.1",
+    "tsx": "^4.22.4",
     "typescript": "^5.7.3"
   }
 }

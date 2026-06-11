@@ -11,8 +11,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'botId é obrigatório' }, { status: 400 });
     }
 
-    // Desconectar o bot (usando logout que é o método disponível no service)
-    await WhatsAppService.logout(botId);
+    const MOTOR_URL = process.env.MOTOR_URL || 'http://localhost:10000';
+    
+    console.log(`[Vercel API] Solicitando desconexão ao motor para o bot: ${botId}`);
+
+    const response = await fetch(`${MOTOR_URL}/api/whatsapp/disconnect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botId }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return NextResponse.json({ error: data.error || 'Erro no motor' }, { status: response.status });
+    }
 
     // Garantir que o status seja atualizado para offline
     await redisRest.set(`status:${botId}`, 'offline');
