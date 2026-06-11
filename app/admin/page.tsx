@@ -33,6 +33,7 @@ export default function AdminPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState("user")
+  const [plan, setPlan] = useState("starter")
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -40,6 +41,7 @@ export default function AdminPage() {
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editRole, setEditRole] = useState("user")
+  const [editPlan, setEditPlan] = useState("starter")
   const [editPassword, setEditPassword] = useState("")
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [stats, setStats] = useState<AdminStats>({ totalUsers: 0, activeSubscriptions: 0, activeBots: 0 })
@@ -90,10 +92,10 @@ export default function AdminPage() {
     }
 
     try {
-      const response = await fetch("/api/users", {
+      const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password, role, plan, paymentStatus: "active" }),
       })
 
       const result = await response.json()
@@ -107,6 +109,7 @@ export default function AdminPage() {
       setEmail("")
       setPassword("")
       setRole("user")
+      setPlan("starter")
       setMessage("✓ Usuário criado com sucesso!")
       setTimeout(() => setMessage(null), 3000)
       fetchUsers()
@@ -146,6 +149,7 @@ export default function AdminPage() {
     setEditName(user.name)
     setEditEmail(user.email)
     setEditRole(user.role)
+    setEditPlan(user.plan || "free")
     setEditPassword("")
   }
 
@@ -165,6 +169,7 @@ export default function AdminPage() {
           name: editName,
           email: editEmail,
           role: editRole,
+          plan: editPlan,
           ...(editPassword && { password: editPassword }),
         }),
       })
@@ -335,6 +340,22 @@ export default function AdminPage() {
                   <option value="admin">Administrador</option>
                 </select>
               </div>
+              <div>
+                <Label htmlFor="user-plan" className="text-sm font-semibold text-slate-700">
+                  Plano
+                </Label>
+                <select
+                  id="user-plan"
+                  value={plan}
+                  onChange={(e) => setPlan(e.target.value)}
+                  className="mt-1.5 w-full px-3 py-2 border border-slate-300 rounded-md focus:border-emerald-500 focus:ring-emerald-500 text-sm"
+                >
+                  <option value="free">Free</option>
+                  <option value="starter">Starter</option>
+                  <option value="pro">Pro</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
               <Button
                 type="submit"
                 disabled={loading}
@@ -454,16 +475,31 @@ export default function AdminPage() {
                     className="mt-1.5 border-slate-300 focus:border-emerald-500"
                   />
                 </div>
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700">Função</Label>
-                  <select
-                    value={editRole}
-                    onChange={(e) => setEditRole(e.target.value)}
-                    className="mt-1.5 w-full px-3 py-2 border border-slate-300 rounded-md focus:border-emerald-500"
-                  >
-                    <option value="user">Usuário</option>
-                    <option value="admin">Administrador</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-semibold text-slate-700">Função</Label>
+                    <select
+                      value={editRole}
+                      onChange={(e) => setEditRole(e.target.value)}
+                      className="mt-1.5 w-full px-3 py-2 border border-slate-300 rounded-md focus:border-emerald-500"
+                    >
+                      <option value="user">Usuário</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-semibold text-slate-700">Plano</Label>
+                    <select
+                      value={editPlan}
+                      onChange={(e) => setEditPlan(e.target.value)}
+                      className="mt-1.5 w-full px-3 py-2 border border-slate-300 rounded-md focus:border-emerald-500"
+                    >
+                      <option value="free">Free</option>
+                      <option value="starter">Starter</option>
+                      <option value="pro">Pro</option>
+                      <option value="enterprise">Enterprise</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <Label className="text-sm font-semibold text-slate-700">
