@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
 import { redisRest } from '@/lib/redis';
 
 export async function GET(req: NextRequest) {
   try {
-    const bots: any[] = await redisRest.get('axon:bots') || [];
+    const { data: bots, error } = await supabase.from('bots').select('*');
+    if (error) throw error;
 
-    // Sincronizar status de cada bot com o Redis em tempo real
+    // Sincronizar status de cada bot com o Redis (apenas para status temporário de conexão)
+    // Supabase armazena a listagem mestre. Redis gerencia o status real-time do WhatsApp.
     const botsWithStatus = await Promise.all(
-      bots.map(async (bot) => {
+      (bots || []).map(async (bot) => {
         const rawStatus = await redisRest.get(`status:${bot.id}`);
         let status: string;
         if (rawStatus === 'connected' || rawStatus === 'online') {
@@ -30,19 +33,18 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const bot = await req.json();
-    const bots: any[] = await redisRest.get('axon:bots') || [];
 
     const newBot = {
       ...bot,
       id: bot.id || Math.random().toString(36).substring(2, 9),
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
       messages: 0,
       uptime: '0%',
       status: 'offline',
     };
 
-    const updatedBots = [...bots, newBot];
-    await redisRest.set('axon:bots', updatedBots);
+    const { error } = await supabase.from('bots').insert([newBot]);
+    if (error) throw error;
 
     return NextResponse.json(newBot);
   } catch (error: any) {
@@ -53,13 +55,10 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const { id, ...updates } = await req.json();
-    const bots: any[] = await redisRest.get('axon:bots') || [];
 
-    const updatedBots = bots.map((bot) =>
-      bot.id === id ? { ...bot, ...updates } : bot
-    );
+    const { error } = await supabase.from('bots').update(updates).eq('id', id);
+    if (error) throw error;
 
-    await redisRest.set('axon:bots', updatedBots);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -71,17 +70,15 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
-    const bots: any[] = await redisRest.get('axon:bots') || [];
-    const updatedBots = bots.filter((bot) => bot.id !== id);
+    if (!id) return NextResponse.json({ error: "ID obrigatório" }, { status: 400 });
 
-    await redisRest.set('axon:bots', updatedBots);
+    const { error } = await supabase.from('bots').delete().eq('id', id);
+    if (error) throw error;
 
-    // Limpar dados do bot no Redis
-    if (id) {
-      await redisRest.del(`status:${id}`);
-      await redisRest.del(`qr:${id}`);
-      await redisRest.del(`creds:${id}`);
-    }
+    // Limpar dados voláteis do bot no Redis
+    await redisRest.del(`status:${id}`);
+    await redisRest.del(`qr:${id}`);
+    await redisRest.del(`creds:${id}`);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

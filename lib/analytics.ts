@@ -1,32 +1,20 @@
-import { sql } from './db';
+import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function initAnalyticsTable() {
-  try {
-    await sql`
-      CREATE TABLE IF NOT EXISTS conversation_logs (
-        id UUID PRIMARY KEY,
-        phone_number VARCHAR(255) NOT NULL,
-        channel VARCHAR(50) NOT NULL,
-        routed_to VARCHAR(50),
-        message_count INTEGER DEFAULT 0,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        last_message_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        resolved BOOLEAN DEFAULT false
-      );
-    `;
-  } catch (err) {
-    console.error('[Analytics] Erro ao criar tabela conversation_logs:', err);
-  }
+  // Em Supabase, recomendamos criar as tabelas via painel SQL.
+  // Criaremos conversation_logs via script manual ou a própria API fará inserts simples se existir.
 }
 
 export async function logConversationStart(phoneNumber: string, channel: 'whatsapp' | 'instagram') {
   try {
     const id = uuidv4();
-    await sql`
-      INSERT INTO conversation_logs (id, phone_number, channel, message_count)
-      VALUES (${id}, ${phoneNumber}, ${channel}, 1)
-    `;
+    await supabase.from('conversation_logs').insert([{
+      id,
+      phone_number: phoneNumber,
+      channel,
+      message_count: 1
+    }]);
     return id;
   } catch (err) {
     console.error('[Analytics] Erro ao iniciar log:', err);
@@ -35,16 +23,25 @@ export async function logConversationStart(phoneNumber: string, channel: 'whatsa
 
 export async function updateConversationMessage(phoneNumber: string) {
   try {
-    // Atualiza a conversa mais recente desse numero não resolvida
-    await sql`
-      UPDATE conversation_logs
-      SET message_count = message_count + 1, last_message_at = CURRENT_TIMESTAMP
-      WHERE id = (
-        SELECT id FROM conversation_logs 
-        WHERE phone_number = ${phoneNumber} AND resolved = false
-        ORDER BY created_at DESC LIMIT 1
-      )
-    `;
+    // Para simplificar, em supabase buscaríamos o último e atualizaríamos
+    const { data: logs } = await supabase
+      .from('conversation_logs')
+      .select('id, message_count')
+      .eq('phone_number', phoneNumber)
+      .eq('resolved', false)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (logs && logs.length > 0) {
+      const log = logs[0];
+      await supabase
+        .from('conversation_logs')
+        .update({ 
+          message_count: log.message_count + 1, 
+          last_message_at: new Date().toISOString() 
+        })
+        .eq('id', log.id);
+    }
   } catch (err) {
     console.error('[Analytics] Erro ao atualizar log:', err);
   }
@@ -52,15 +49,20 @@ export async function updateConversationMessage(phoneNumber: string) {
 
 export async function updateConversationRoute(phoneNumber: string, route: 'sales' | 'support') {
   try {
-    await sql`
-      UPDATE conversation_logs
-      SET routed_to = ${route}
-      WHERE id = (
-        SELECT id FROM conversation_logs 
-        WHERE phone_number = ${phoneNumber} AND resolved = false
-        ORDER BY created_at DESC LIMIT 1
-      )
-    `;
+    const { data: logs } = await supabase
+      .from('conversation_logs')
+      .select('id')
+      .eq('phone_number', phoneNumber)
+      .eq('resolved', false)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (logs && logs.length > 0) {
+      await supabase
+        .from('conversation_logs')
+        .update({ routed_to: route })
+        .eq('id', logs[0].id);
+    }
   } catch (err) {
     console.error('[Analytics] Erro ao atualizar rota:', err);
   }

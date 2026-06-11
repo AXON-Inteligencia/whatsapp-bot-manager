@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 
 const client = new MercadoPagoConfig({ 
@@ -29,11 +29,11 @@ export async function POST(req: NextRequest) {
         if (description.toLowerCase().includes("enterprise")) plan = "enterprise";
 
         if (payerEmail) {
-          await sql`
-            UPDATE users 
-            SET plan = ${plan}, payment_status = 'paid' 
-            WHERE email = ${payerEmail}
-          `;
+          await supabase
+            .from('users')
+            .update({ plan, payment_status: 'paid' })
+            .eq('email', payerEmail);
+            
           console.log(`[MercadoPago] Plano ${plan} ativado para ${payerEmail}`);
         }
       }
@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
     return new NextResponse("OK", { status: 200 });
   } catch (error: any) {
     console.error("[MercadoPago Webhook Error]:", error);
-    // Retornamos 200 mesmo no erro para que o MercadoPago pare de reenviar se não for crítico
     return new NextResponse("OK", { status: 200 });
   }
 }

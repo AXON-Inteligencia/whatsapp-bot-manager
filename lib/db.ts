@@ -1,27 +1,6 @@
-import { Pool } from "pg"
-
-// Criando pool de conexão universal (funciona com Render, Supabase, Neon, AWS, etc)
-const pool = new Pool({
-  connectionString: process.env.POSTGRES_URL,
-  ssl: process.env.POSTGRES_URL && !process.env.POSTGRES_URL.includes("localhost") 
-    ? { rejectUnauthorized: false } 
-    : undefined
-})
-
-export const sql = async (strings: TemplateStringsArray, ...values: any[]) => {
-  const queryText = strings.reduce((prev, curr, i) => prev + curr + (i < values.length ? `$${i + 1}` : ""), "")
-  const client = await pool.connect()
-  try {
-    const result = await client.query(queryText, values)
-    return result
-  } finally {
-    client.release()
-  }
-}
 import { User } from "./types"
 import bcrypt from "bcryptjs"
-
-type IdColumnKind = "numeric" | "text" | "unknown"
+import { supabase } from "./supabase"
 
 const DEFAULT_ADMIN_EMAIL = "admin@axonflow.local"
 const DEFAULT_ADMIN_PASSWORD = "Axon@2026"
@@ -34,33 +13,6 @@ const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
 const generateUserId = () => `user-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
 
-async function getUserIdColumnKind(): Promise<IdColumnKind> {
-  try {
-    const { rows } = await sql`
-      SELECT data_type
-      FROM information_schema.columns
-      WHERE table_name = 'users'
-        AND column_name = 'id'
-      LIMIT 1;
-    `
-
-    const dataType = String(rows[0]?.data_type || "").toLowerCase()
-
-    if (["integer", "bigint", "smallint", "numeric"].includes(dataType)) {
-      return "numeric"
-    }
-
-    if (["text", "character varying", "uuid"].includes(dataType)) {
-      return "text"
-    }
-
-    return "unknown"
-  } catch (error) {
-    console.error("Erro ao verificar tipo da coluna users.id:", error)
-    return "unknown"
-  }
-}
-
 export async function insertUser(params: {
   id?: string
   name: string
@@ -70,33 +22,32 @@ export async function insertUser(params: {
   plan?: string
   paymentStatus?: string
 }): Promise<User> {
-  const idKind = await getUserIdColumnKind()
   const normalizedEmail = normalizeEmail(params.email)
   const plan = params.plan || 'free'
   const paymentStatus = params.paymentStatus || 'pending'
+  const id = params.id || generateUserId()
 
-  // Garantir que as colunas existem (migração rápida silenciosa)
-  try {
-    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(50) DEFAULT 'free';`
-    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'pending';`
-  } catch (e) {}
+  const { data, error } = await supabase
+    .from('users')
+    .insert([{
+      id,
+      name: params.name,
+      email: normalizedEmail,
+      password: params.password,
+      role: params.role,
+      plan,
+      payment_status: paymentStatus
+    }])
+    .select()
+    .single()
 
-  if (idKind === "numeric") {
-    const { rows } = await sql`
-      INSERT INTO users (name, email, password, role, plan, payment_status)
-      VALUES (${params.name}, ${normalizedEmail}, ${params.password}, ${params.role}, ${plan}, ${paymentStatus})
-      RETURNING id, name, email, password, role, plan, payment_status as "paymentStatus";
-    `
-    return rows[0] as User
+  if (error) {
+    console.error("Erro no insertUser:", error)
+    throw error
   }
 
-  const id = params.id || generateUserId()
-  const { rows } = await sql`
-    INSERT INTO users (id, name, email, password, role, plan, payment_status)
-    VALUES (${id}, ${params.name}, ${normalizedEmail}, ${params.password}, ${params.role}, ${plan}, ${paymentStatus})
-    RETURNING id, name, email, password, role, plan, payment_status as "paymentStatus";
-  `
-  return rows[0] as User
+  // Map database column payment_status back to camelCase paymentStatus
+  return { ...data, paymentStatus: data.payment_status } as User
 }
 
 async function upsertAdmin(email: string, passwordHash: string) {
@@ -104,11 +55,10 @@ async function upsertAdmin(email: string, passwordHash: string) {
   const existing = await findUserByEmail(normalizedEmail)
 
   if (existing) {
-    await sql`
-      UPDATE users
-      SET name = 'Administrador', password = ${passwordHash}, role = 'admin'
-      WHERE email = ${normalizedEmail};
-    `
+    await supabase
+      .from('users')
+      .update({ name: 'Administrador', password: passwordHash, role: 'admin' })
+      .eq('email', normalizedEmail)
     return
   }
 
@@ -121,39 +71,51 @@ async function upsertAdmin(email: string, passwordHash: string) {
   })
 }
 
-// Função para inicializar o banco de dados se necessário.
+// Função para inicializar o banco de dados (criar tabela via Supabase RPC ou SQL injection, mas Supabase JS não cria tabela facilmente via REST API).
+// Vamos criar a tabela users se não existir executando raw SQL via REST? O Supabase REST API não permite DDL.
+// O ideal é assumir que criaremos a tabela via um script separado, mas vamos tentar ler, se falhar, avisamos para rodar o script no painel.
 export const initDB = async () => {
-  await sql`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      role TEXT NOT NULL
-    );
-  `
+  // Check if users table exists by doing a simple select
+  const { error } = await supabase.from('users').select('id').limit(1)
+  
+  if (error && error.code === '42P01') {
+    // Tabela não existe, a criação deve ser feita no SQL Editor do Supabase:
+    console.error("ATENÇÃO: A tabela 'users' não existe no Supabase. Por favor, rode o script de criação no SQL Editor do painel do Supabase.")
+  }
 
   const adminEmail = normalizeEmail(process.env.ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL)
   const adminPassword = process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD
   const hashedPassword = await bcrypt.hash(adminPassword, 10)
 
-  await upsertAdmin(adminEmail, hashedPassword)
+  // Try to upsert admin (it will fail if table doesn't exist, but that's fine, we log it above)
+  try {
+    await upsertAdmin(adminEmail, hashedPassword)
 
-  // Mantém compatibilidade com credenciais antigas documentadas no projeto e com o placeholder da tela de login.
-  // Para desativar estes aliases, defina DISABLE_LEGACY_ADMIN_ALIASES=true no ambiente.
-  if (process.env.DISABLE_LEGACY_ADMIN_ALIASES !== "true") {
-    for (const legacyEmail of LEGACY_ADMIN_EMAILS) {
-      if (normalizeEmail(legacyEmail) !== adminEmail) {
-        await upsertAdmin(legacyEmail, hashedPassword)
+    if (process.env.DISABLE_LEGACY_ADMIN_ALIASES !== "true") {
+      for (const legacyEmail of LEGACY_ADMIN_EMAILS) {
+        if (normalizeEmail(legacyEmail) !== adminEmail) {
+          await upsertAdmin(legacyEmail, hashedPassword)
+        }
       }
     }
+  } catch (e) {
+    console.error("InitDB Admin Creation Failed:", e)
   }
 }
 
 export const getUsers = async (): Promise<User[]> => {
   try {
-    const { rows } = await sql`SELECT id, name, email, role, plan, payment_status as "paymentStatus" FROM users ORDER BY id DESC;`
-    return rows as User[]
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email, role, plan, payment_status')
+      .order('id', { ascending: false })
+
+    if (error) throw error
+
+    return data.map(d => ({
+      ...d,
+      paymentStatus: d.payment_status
+    })) as User[]
   } catch (error) {
     console.error("Erro ao buscar usuários:", error)
     return []
@@ -162,14 +124,20 @@ export const getUsers = async (): Promise<User[]> => {
 
 export const getAdminStats = async () => {
   try {
-    const { rows: userRows } = await sql`SELECT COUNT(*) as total FROM users WHERE role = 'user';`
-    const { rows: paidRows } = await sql`SELECT COUNT(*) as total FROM users WHERE payment_status = 'paid';`
-    // Como a tabela de bots reais pode não estar implementada ainda, faremos uma estimativa baseada nos pagantes, 
-    // ou se houver uma tabela whatsapp_instances, contaríamos nela.
+    const { count: totalUsers } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('role', 'user')
+
+    const { count: activeSubscriptions } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('payment_status', 'paid')
+
     return {
-      totalUsers: parseInt(userRows[0]?.total || "0", 10),
-      activeSubscriptions: parseInt(paidRows[0]?.total || "0", 10),
-      activeBots: parseInt(paidRows[0]?.total || "0", 10) * 1, // Simulando 1 bot por pagante
+      totalUsers: totalUsers || 0,
+      activeSubscriptions: activeSubscriptions || 0,
+      activeBots: activeSubscriptions || 0, // Simulando 1 bot por pagante
     }
   } catch (error) {
     console.error("Erro ao buscar estatísticas do admin:", error)
@@ -180,8 +148,15 @@ export const getAdminStats = async () => {
 export const findUserByEmail = async (email: string): Promise<User | undefined> => {
   try {
     const normalizedEmail = normalizeEmail(email)
-    const { rows } = await sql`SELECT * FROM users WHERE email = ${normalizedEmail} LIMIT 1;`
-    return rows[0] as User | undefined
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', normalizedEmail)
+      .single()
+
+    if (error || !data) return undefined
+
+    return { ...data, paymentStatus: data.payment_status } as User
   } catch (error) {
     console.error("Erro ao buscar usuário por email:", error)
     return undefined
@@ -196,6 +171,8 @@ export const addUser = async (userData: Omit<User, "id">): Promise<User | undefi
       email: userData.email,
       password: hashedPassword,
       role: userData.role,
+      plan: userData.plan,
+      paymentStatus: userData.paymentStatus
     })
   } catch (error) {
     console.error("Erro ao adicionar usuário:", error)
@@ -205,7 +182,8 @@ export const addUser = async (userData: Omit<User, "id">): Promise<User | undefi
 
 export const deleteUser = async (id: string): Promise<boolean> => {
   try {
-    await sql`DELETE FROM users WHERE id = ${id};`
+    const { error } = await supabase.from('users').delete().eq('id', id)
+    if (error) throw error
     return true
   } catch (error) {
     console.error("Erro ao deletar usuário:", error)

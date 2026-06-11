@@ -1,52 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
   try {
-    // Analytics: Hoje
-    const { rows: todayRows } = await sql`
-      SELECT routed_to, COUNT(*) as count 
-      FROM conversation_logs 
-      WHERE DATE(created_at) = CURRENT_DATE
-      GROUP BY routed_to
-    `;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    // Analytics: Semana
-    const { rows: weekRows } = await sql`
-      SELECT routed_to, COUNT(*) as count 
-      FROM conversation_logs 
-      WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
-      GROUP BY routed_to
-    `;
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
 
-    // Analytics: Mês
-    const { rows: monthRows } = await sql`
-      SELECT routed_to, COUNT(*) as count 
-      FROM conversation_logs 
-      WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
-      GROUP BY routed_to
-    `;
+    const monthAgo = new Date();
+    monthAgo.setDate(monthAgo.getDate() - 30);
 
-    const { rows: avgRows } = await sql`
-      SELECT AVG(message_count) as avg_msgs FROM conversation_logs
-    `;
+    const { data: todayLogs } = await supabase
+      .from('conversation_logs')
+      .select('routed_to')
+      .gte('created_at', today.toISOString());
+
+    const { data: weekLogs } = await supabase
+      .from('conversation_logs')
+      .select('routed_to')
+      .gte('created_at', weekAgo.toISOString());
+
+    const { data: monthLogs } = await supabase
+      .from('conversation_logs')
+      .select('routed_to')
+      .gte('created_at', monthAgo.toISOString());
+
+    const { data: allLogs } = await supabase
+      .from('conversation_logs')
+      .select('message_count');
 
     const parseCounts = (rows: any[]) => {
       let total = 0, sales = 0, support = 0;
+      if (!rows) return { total, sales, support };
       for (const row of rows) {
-        const c = parseInt(row.count) || 0;
-        total += c;
-        if (row.routed_to === 'sales') sales += c;
-        if (row.routed_to === 'support') support += c;
+        total += 1;
+        if (row.routed_to === 'sales') sales += 1;
+        if (row.routed_to === 'support') support += 1;
       }
       return { total, sales, support };
     };
 
+    let avgMsgs = 0;
+    if (allLogs && allLogs.length > 0) {
+      const sum = allLogs.reduce((acc, log) => acc + (log.message_count || 0), 0);
+      avgMsgs = sum / allLogs.length;
+    }
+
     return NextResponse.json({
-      today: parseCounts(todayRows),
-      week: parseCounts(weekRows),
-      month: parseCounts(monthRows),
-      avgMessagesPerConversation: parseFloat(avgRows[0]?.avg_msgs || 0).toFixed(1)
+      today: parseCounts(todayLogs || []),
+      week: parseCounts(weekLogs || []),
+      month: parseCounts(monthLogs || []),
+      avgMessagesPerConversation: avgMsgs.toFixed(1)
     });
   } catch (error: any) {
     console.error('[Analytics API]', error);
