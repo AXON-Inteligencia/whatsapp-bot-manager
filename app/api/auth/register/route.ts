@@ -33,6 +33,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(userWithoutPassword, { status: 201 })
   } catch (error: any) {
     console.error("[Register API Error]:", error)
-    return NextResponse.json({ error: "Erro interno no servidor ao criar conta." }, { status: 500 })
+    return NextResponse.json({ error: `Erro ao criar conta no Banco de Dados: ${error.message || JSON.stringify(error)}` }, { status: 500 })
   }
 }
