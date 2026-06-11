@@ -76,7 +76,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
         body: JSON.stringify(botData),
       });
       if (!res.ok) {
-        throw new Error('Falha ao criar o bot no banco de dados (Redis ausente).');
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Erro HTTP ${res.status}: Falha ao criar bot`);
       }
       const newBot = await res.json();
       set((state) => ({ bots: [...state.bots, newBot] }));
