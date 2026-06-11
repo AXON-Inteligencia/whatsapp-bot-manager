@@ -120,7 +120,13 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-10 flex flex-col items-center gap-4">
-          <div className="text-slate-400 text-[10px] uppercase tracking-widest font-bold">
+          <div className="text-slate-500 text-sm font-medium">
+            Ainda não tem uma conta?{" "}
+            <a href="/register" className="text-emerald-600 hover:text-emerald-700 font-bold hover:underline transition-all">
+              Crie uma agora
+            </a>
+          </div>
+          <div className="text-slate-400 text-[10px] uppercase tracking-widest font-bold mt-2">
             Powered by Axon Inteligência
           </div>
         </div>

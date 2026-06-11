@@ -10,6 +10,8 @@ interface User {
   name: string;
   email: string;
   role: string;
+  plan?: string;
+  password?: string;
 }
 
 export default function UsersManagementPage() {
@@ -55,21 +57,39 @@ export default function UsersManagementPage() {
     e.preventDefault();
     if (!editingUser) return;
 
-    try {
-      const res = await fetch("/api/users", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingUser),
-      });
+    const isNew = editingUser.id === "new";
 
-      if (res.ok) {
-        setUsers(users.map((u) => (u.id === editingUser.id ? editingUser : u)));
-        setEditingUser(null);
-        setMessage({ text: "Usuário atualizado com sucesso!", type: "success" });
-        setTimeout(() => setMessage({ text: "", type: "" }), 3000);
+    try {
+      if (isNew) {
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...editingUser, paymentStatus: "active" }),
+        });
+        if (res.ok) {
+          fetchUsers();
+          setEditingUser(null);
+          setMessage({ text: "Usuário criado com sucesso!", type: "success" });
+        } else {
+          setMessage({ text: "Erro ao criar usuário.", type: "error" });
+        }
+      } else {
+        const res = await fetch("/api/users", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editingUser),
+        });
+        if (res.ok) {
+          setUsers(users.map((u) => (u.id === editingUser.id ? editingUser : u)));
+          setEditingUser(null);
+          setMessage({ text: "Usuário atualizado com sucesso!", type: "success" });
+        } else {
+          setMessage({ text: "Erro ao atualizar usuário.", type: "error" });
+        }
       }
+      setTimeout(() => setMessage({ text: "", type: "" }), 3000);
     } catch (err) {
-      setMessage({ text: "Erro ao atualizar usuário.", type: "error" });
+      setMessage({ text: "Erro ao processar requisição.", type: "error" });
     }
   };
 
@@ -81,9 +101,17 @@ export default function UsersManagementPage() {
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Gestão de Usuários</h1>
-                <p className="text-slate-500 mt-1">Controle total sobre os acessos do AxonFlow</p>
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Gestão de Usuários</h1>
+                  <p className="text-slate-500 mt-1">Controle total sobre os acessos do AxonFlow</p>
+                </div>
+                <button 
+                  onClick={() => setEditingUser({ id: "new", name: "", email: "", role: "user", plan: "starter", password: "" })}
+                  className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 ml-auto"
+                >
+                  <Check size={18} /> Novo Usuário
+                </button>
               </div>
             </div>
 
@@ -105,6 +133,7 @@ export default function UsersManagementPage() {
                     <tr className="bg-slate-50/50 border-b border-slate-100">
                       <th className="px-6 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">Nome</th>
                       <th className="px-6 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">E-mail</th>
+                      <th className="px-6 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">Plano</th>
                       <th className="px-6 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">Cargo</th>
                       <th className="px-6 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Ações</th>
                     </tr>
@@ -112,7 +141,7 @@ export default function UsersManagementPage() {
                   <tbody className="divide-y divide-slate-50">
                     {loading ? (
                       <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center">
+                        <td colSpan={5} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center gap-3">
                             <div className="w-6 h-6 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
                             <span className="text-sm text-slate-400 font-medium">Carregando usuários...</span>
@@ -121,7 +150,7 @@ export default function UsersManagementPage() {
                       </tr>
                     ) : users.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-medium">
+                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
                           Nenhum usuário encontrado.
                         </td>
                       </tr>
@@ -137,6 +166,7 @@ export default function UsersManagementPage() {
                             </div>
                           </td>
                           <td className="px-6 py-5 text-sm text-slate-500 font-medium">{user.email}</td>
+                          <td className="px-6 py-5 text-sm text-slate-500 font-medium capitalize">{user.plan || 'Free'}</td>
                           <td className="px-6 py-5">
                             <span className={`inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
                               user.role === "admin" 
@@ -211,16 +241,44 @@ export default function UsersManagementPage() {
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Nível de Acesso</label>
-                  <select
-                    value={editingUser.role}
-                    onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none"
-                  >
-                    <option value="user">Usuário Comum</option>
-                    <option value="admin">Administrador</option>
-                  </select>
+                {editingUser.id === "new" && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Senha (Temporária)</label>
+                    <input
+                      type="text"
+                      value={editingUser.password || ""}
+                      onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })}
+                      placeholder="Ex: Axon123"
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-medium text-slate-700"
+                      required
+                    />
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Nível de Acesso</label>
+                    <select
+                      value={editingUser.role}
+                      onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none"
+                    >
+                      <option value="user">Usuário Comum</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Plano Ativo</label>
+                    <select
+                      value={editingUser.plan || "free"}
+                      onChange={(e) => setEditingUser({ ...editingUser, plan: e.target.value })}
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none"
+                    >
+                      <option value="free">Free</option>
+                      <option value="starter">Starter</option>
+                      <option value="pro">Pro</option>
+                      <option value="enterprise">Enterprise</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="pt-4 flex gap-4">
                   <button 
