@@ -18,6 +18,12 @@ interface AppStore {
   addBot: (bot: Omit<Bot, "id" | "createdAt" | "messages" | "uptime">) => Promise<void>
   updateBot: (id: string, updates: Partial<Bot>) => Promise<void>
   deleteBot: (id: string) => Promise<void>
+
+  // Contact Actions
+  addContact: (contact: Omit<Contact, "id" | "createdAt" | "totalMessages" | "lastContact">) => void
+  updateContact: (id: string, updates: Partial<Contact>) => void
+  deleteContact: (id: string) => void
+  importContacts: (contacts: Omit<Contact, "id" | "createdAt" | "totalMessages" | "lastContact">[]) => void
   
   // Search & Filter Actions
   setSearchTerm: (term: string) => void
@@ -106,6 +112,40 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setSearchTerm: (term) => set({ searchTerm: term }),
   setStatusFilter: (status) => set({ statusFilter: status }),
+
+  addContact: (contactData) => {
+    const newContact = {
+      ...contactData,
+      id: Math.random().toString(36).substring(2, 9),
+      createdAt: new Date().toISOString(),
+      totalMessages: 0,
+      lastContact: new Date().toISOString(),
+    } as Contact;
+    set((state) => ({ contacts: [...state.contacts, newContact] }));
+  },
+
+  updateContact: (id, updates) => {
+    set((state) => ({
+      contacts: state.contacts.map((contact) => 
+        contact.id === id ? { ...contact, ...updates } : contact
+      ),
+    }));
+  },
+
+  deleteContact: (id) => {
+    set((state) => ({ contacts: state.contacts.filter((c) => c.id !== id) }));
+  },
+
+  importContacts: (contactsData) => {
+    const newContacts = contactsData.map(c => ({
+      ...c,
+      id: Math.random().toString(36).substring(2, 9),
+      createdAt: new Date().toISOString(),
+      totalMessages: 0,
+      lastContact: new Date().toISOString(),
+    })) as Contact[];
+    set((state) => ({ contacts: [...state.contacts, ...newContacts] }));
+  },
 
   getStats: () => {
     const { bots, contacts } = get();

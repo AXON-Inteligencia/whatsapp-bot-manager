@@ -39,10 +39,16 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
+    // Try to verify
     await jwtVerify(token, JWT_SECRET)
     return NextResponse.next()
   } catch (error) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    // Se o token expirou ou é inválido, tentamos redirecionar de forma limpa,
+    // garantindo que não entre em loop
+    console.error("Token JWT inválido ou expirado:", error)
+    const response = NextResponse.redirect(new URL('/login', request.url))
+    response.cookies.delete('axon-auth-token')
+    return response
   }
 }
 

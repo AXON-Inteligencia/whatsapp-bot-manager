@@ -282,8 +282,8 @@ export default function LandingPage() {
             </div>
             <div className="feature-card">
               <div className="feature-icon">🧠</div>
-              <div className="feature-title">IA com sua Voz</div>
-              <div className="feature-desc">Treine o bot com seus próprios textos, FAQ e estilo de comunicação. A IA aprende e evolui com você.</div>
+              <div className="feature-title">Modelos de IA Avançados</div>
+              <div className="feature-desc">Suporte nativo a <strong>Groq, Gemini e demais agentes de IA</strong>. Treine o bot com seus próprios textos, FAQ e estilo de comunicação. (O uso das IAs é opcional e cobrado como adicional fora do plano escolhido).</div>
             </div>
           </div>
         </div>

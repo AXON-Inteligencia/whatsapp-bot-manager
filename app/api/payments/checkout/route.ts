@@ -8,8 +8,9 @@ const PLANS = {
 }
 
 export async function POST(req: NextRequest) {
+  const token = (process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-SEU_TOKEN_AQUI').trim();
   const client = new MercadoPagoConfig({ 
-    accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-SEU_TOKEN_AQUI',
+    accessToken: token,
     options: { timeout: 5000 }
   });
 

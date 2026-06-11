@@ -39,7 +39,6 @@ const navigation = [
 import { CreditCard } from "lucide-react"
 
 const bottomNav = [
-  { name: "Faturamento", href: "/faturamento", icon: CreditCard },
   { name: "Configurações", href: "/settings", icon: Settings },
   { name: "Ajuda", href: "/help", icon: HelpCircle },
 ]
