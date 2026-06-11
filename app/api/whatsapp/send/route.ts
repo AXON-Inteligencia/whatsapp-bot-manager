@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     // Envio síncrono via MOTOR
     try {
-      const MOTOR_URL = process.env.MOTOR_URL || 'http://localhost:10000';
+      const MOTOR_URL = process.env.MOTOR_URL || 'http://localhost:10001';
       
       const response = await fetch(`${MOTOR_URL}/api/whatsapp/send`, {
         method: 'POST',
