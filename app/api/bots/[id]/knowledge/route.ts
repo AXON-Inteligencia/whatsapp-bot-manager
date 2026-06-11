@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
-import pdfParse from "pdf-parse";
 import { chunkText } from "@/lib/rag/chunker";
+
+// Evita erro de default export na build da Vercel/Render
+const pdfParse = require("pdf-parse");
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
