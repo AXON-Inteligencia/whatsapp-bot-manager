@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import jwt from "jsonwebtoken"
 import { addUser, deleteUser, getUsers, initDB } from "@/lib/db"
+import { supabase } from "@/lib/supabase"
+import bcrypt from "bcryptjs"
 
 const JWT_SECRET = process.env.JWT_SECRET || "axon-inteligencia-secret-key-2024"
 
@@ -101,7 +103,6 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Dados incompletos" }, { status: 400 })
     }
 
-    const { supabase } = await import('@/lib/supabase');
     const updateData: any = { 
       name, 
       email: email.trim().toLowerCase(), 
@@ -111,7 +112,6 @@ export async function PUT(request: Request) {
     };
 
     if (password) {
-      const bcrypt = await import('bcryptjs');
       updateData.password = await bcrypt.hash(password, 10);
     }
 
