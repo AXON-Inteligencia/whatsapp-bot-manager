@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "tsx motor/server.ts & next start",
     "lint": "eslint .",
     "start:motor": "tsx motor/server.ts"
   },
