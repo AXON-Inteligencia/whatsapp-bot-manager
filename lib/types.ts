@@ -29,6 +29,8 @@ export interface Conversation {
   botName: string
 }
 
+export type FunnelStage = 'new_lead' | 'negotiating' | 'closed' | 'support'
+
 export interface Contact {
   id: string
   name: string
@@ -37,6 +39,7 @@ export interface Contact {
   tags: string[]
   lastContact: Date
   totalMessages: number
+  funnelStage?: FunnelStage
 }
 
 export interface Automation {

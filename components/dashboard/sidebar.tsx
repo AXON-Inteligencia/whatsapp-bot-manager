@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Megaphone,
   UsersRound,
+  Kanban,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -30,6 +31,7 @@ const navigation = [
   { name: "Conversas", href: "/conversations", icon: MessageSquare },
   { name: "Contatos", href: "/contacts", icon: Users },
   { name: "Campanhas", href: "/campaigns", icon: Megaphone },
+  { name: "CRM Kanban", href: "/crm", icon: Kanban },
   { name: "Grupos", href: "/groups", icon: UsersRound },
   { name: "Automações", href: "/automations", icon: Zap },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },

@@ -17,6 +17,7 @@ import pino from 'pino';
 import { redis } from '../redis';
 import Groq from 'groq-sdk';
 import { logConversationStart, updateConversationMessage, initAnalyticsTable, updateConversationRoute } from '../analytics';
+import { downloadAudio, transcribeAudio } from './audio';
 
 const logger = pino({ level: 'info' });
 const SESSIONS_DIR = '/tmp/sessions';
@@ -238,7 +239,34 @@ export class WhatsAppService {
       if (!remoteJid || remoteJid.includes('@g.us') || remoteJid.includes('status')) return; // Ignora grupos e status
 
       const isFromMe = msg.key.fromMe;
-      const textMessage = msg.message.conversation || msg.message.extendedTextMessage?.text;
+      let textMessage = msg.message.conversation || msg.message.extendedTextMessage?.text;
+      
+      // FEATURE 2: OUVIDO BIÔNICO (TRANSCRIÇÃO DE ÁUDIO)
+      if (msg.message.audioMessage || msg.message.ptvMessage) {
+        const bots: any[] = await redis.get('axon:bots') || [];
+        const bot = bots.find((b: any) => b.id === botId);
+        
+        if (bot && bot.aiSettings?.enabled && bot.aiSettings?.apiKey) {
+          const start = Date.now();
+          try {
+            const buffer = await downloadAudio(msg);
+            const transcription = await transcribeAudio(buffer, bot.aiSettings.apiKey.trim());
+            
+            if (!transcription) {
+              await sock.sendMessage(remoteJid, { text: 'Não consegui entender o áudio 🎤 Pode digitar sua mensagem?' });
+              return;
+            }
+            
+            textMessage = `[Áudio transcrito]: ${transcription}`;
+            console.log(`[Áudio] Transcrito em ${Date.now() - start}ms: "${transcription.substring(0, 80)}..."`);
+          } catch (e) {
+            console.error('[Áudio] Erro ao processar:', e);
+            await sock.sendMessage(remoteJid, { text: 'Estou com dificuldade para ouvir áudios agora 🎤 Pode digitar?' });
+            return;
+          }
+        }
+      }
+
       if (!textMessage) return;
 
       const timestamp = new Date().toISOString();
@@ -349,6 +377,26 @@ Responda apenas: vendas ou suporte`;
             intent = 'support';
           }
           await updateConversationRoute(contactPhone, intent);
+
+          // CRM Kanban (Feature 3): Atualiza estágio do funil se for novo lead
+          try {
+            const baseUrl = `http://localhost:${process.env.PORT || 3000}`;
+            const getStage = await fetch(`${baseUrl}/api/contacts/${contactPhone}/stage`);
+            const stageData = await getStage.json();
+            
+            if (stageData.stage === 'new_lead') {
+              const newStage = intent === 'sales' ? 'negotiating' : 'support';
+              await fetch(`${baseUrl}/api/contacts/${contactPhone}/stage`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stage: newStage })
+              });
+              console.log(`[CRM] Movido automaticamente ${contactPhone} para ${newStage}`);
+            }
+          } catch (crmErr) {
+            console.error('[CRM] Erro ao mover card no Kanban:', crmErr);
+          }
+
         } catch (routerErr) {
           console.error('[Roteador] Erro na classificação, caindo para vendas por padrão', routerErr);
         }
@@ -359,8 +407,23 @@ Responda apenas: vendas ou suporte`;
         
         let systemPromptText = intent === 'sales' ? botSalesPrompt : botSupportPrompt;
 
+        // Base de Conhecimento (RAG)
+        let knowledgeContext = "";
+        try {
+          const knowledgeDataStr = await redis.get(`bot:${botId}:knowledge`);
+          if (knowledgeDataStr) {
+            const knowledgeData = typeof knowledgeDataStr === 'string' ? JSON.parse(knowledgeDataStr) : knowledgeDataStr;
+            if (knowledgeData.chunks && knowledgeData.chunks.length > 0) {
+              const docName = knowledgeData.metadata?.filename || "documento";
+              knowledgeContext = `\n<knowledge>\n[CONTEÚDO DO DOCUMENTO: ${docName}]\n${knowledgeData.chunks.join('\\n\\n---\\n\\n')}\n[FIM DO DOCUMENTO]\n</knowledge>\n\nQuando a pergunta do usuário puder ser respondida com base no documento acima, priorize essas informações.`;
+            }
+          }
+        } catch (knowledgeErr) {
+          console.error('[Base de Conhecimento] Erro ao buscar documento do bot', knowledgeErr);
+        }
+
         const systemPrompt = `COMPORTAMENTO (Modo: ${intent === 'sales' ? 'VENDAS' : 'SUPORTE'}):
-${systemPromptText}
+${systemPromptText}${knowledgeContext}
 
 INSTRUÇÕES IMPORTANTES:
 - NUNCA invente informações.

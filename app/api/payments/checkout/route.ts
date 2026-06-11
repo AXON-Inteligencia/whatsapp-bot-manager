@@ -1,59 +1,58 @@
-import { NextRequest, NextResponse } from "next/server";
-import { MercadoPagoConfig, PreApproval } from 'mercadopago';
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
+import { findOrCreateCustomer, createPaymentLink } from "@/lib/asaas/client";
+import { supabase } from "@/lib/supabase";
 
-const PLANS = {
-  starter: { price: 97.00, title: "AxonFlow Starter - Assinatura Mensal" },
-  pro: { price: 197.00, title: "AxonFlow Pro - Assinatura Mensal" },
-  enterprise: { price: 497.00, title: "AxonFlow Enterprise - Assinatura Mensal" }
+const JWT_SECRET = process.env.JWT_SECRET || "axon-inteligencia-secret-key-2024";
+
+async function getUserFromSession() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("axon-auth-token")?.value;
+    if (!token) return null;
+    const decoded: any = jwt.verify(token, JWT_SECRET);
+    return decoded;
+  } catch {
+    return null;
+  }
 }
 
-export async function POST(req: NextRequest) {
-  const token = (process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-SEU_TOKEN_AQUI').trim();
-  const client = new MercadoPagoConfig({ 
-    accessToken: token,
-    options: { timeout: 5000 }
-  });
+export async function POST(request: Request) {
+  const sessionUser = await getUserFromSession();
+  if (!sessionUser || !sessionUser.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
-    const body = await req.json();
-    const { userEmail, plan } = body;
+    const body = await request.json();
+    const { planName, value } = body;
 
-    if (!userEmail) {
-      return NextResponse.json({ error: "Email do usuário é obrigatório" }, { status: 400 });
+    const { data: dbUser, error } = await supabase
+      .from('users')
+      .select('email, name, asaas_customer_id')
+      .eq('id', sessionUser.id)
+      .single();
+
+    if (error || !dbUser) {
+      return NextResponse.json({ error: "User not found in database" }, { status: 404 });
     }
 
-    const selectedPlan = PLANS[plan as keyof typeof PLANS];
-    if (!selectedPlan) {
-      return NextResponse.json({ error: "Plano inválido" }, { status: 400 });
+    let customerId = dbUser.asaas_customer_id;
+
+    if (!customerId) {
+      customerId = await findOrCreateCustomer(sessionUser.id, dbUser.name, dbUser.email);
+      await supabase
+        .from('users')
+        .update({ asaas_customer_id: customerId })
+        .eq('id', sessionUser.id);
     }
 
-    const preApproval = new PreApproval(client);
-    
-    const subscription = await preApproval.create({
-      body: {
-        reason: selectedPlan.title,
-        auto_recurring: {
-          frequency: 1,
-          frequency_type: "months",
-          transaction_amount: selectedPlan.price,
-          currency_id: "BRL"
-        },
-        back_url: "https://flow.axoninteligencia.com.br/dashboard?payment=success",
-        payer_email: userEmail,
-        status: "pending"
-      }
-    });
+    const paymentLink = await createPaymentLink(customerId, planName, value);
 
-    return NextResponse.json({ 
-      checkoutUrl: subscription.init_point,
-      subscriptionId: subscription.id 
-    });
-
-  } catch (error: any) {
-    console.error("[MercadoPago Checkout Error]:", error);
-    return NextResponse.json({ 
-      error: "Erro ao gerar link de pagamento.", 
-      details: error.message || error.response?.data || error
-    }, { status: 500 });
+    return NextResponse.json({ paymentLink });
+  } catch (err: any) {
+    console.error("[Checkout API Error]:", err);
+    return NextResponse.json({ error: "Erro ao gerar link de pagamento, tente novamente" }, { status: 502 });
   }
 }

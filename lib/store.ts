@@ -120,6 +120,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       createdAt: new Date().toISOString(),
       totalMessages: 0,
       lastContact: new Date().toISOString(),
+      funnelStage: 'new_lead',
     } as Contact;
     set((state) => ({ contacts: [...state.contacts, newContact] }));
   },

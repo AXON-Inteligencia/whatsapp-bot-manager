@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Trash2, Edit2, Plus, X, Check } from "lucide-react"
+import { toast } from "sonner"
 
 const AUTH_KEY = "whatsapp-admin-auth"
 
@@ -226,6 +227,40 @@ export default function AdminPage() {
             Sair
           </Button>
         </div>
+
+        {/* Banner de Upgrade / Checkout Asaas */}
+        <Card className="bg-gradient-to-r from-emerald-600 to-teal-600 border-none shadow-md mb-2">
+          <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-white">
+            <div>
+              <h3 className="text-lg font-bold flex items-center gap-2">🚀 Faça upgrade para o Plano Pro!</h3>
+              <p className="text-emerald-100 text-sm mt-1">Libere CRM Avançado (Kanban), Ouvido Biônico e Base de Conhecimento por apenas R$97/mês.</p>
+            </div>
+            <Button 
+              className="bg-white text-emerald-700 hover:bg-emerald-50 font-bold whitespace-nowrap shadow-sm"
+              onClick={async () => {
+                const toastId = toast.loading("Gerando link de pagamento seguro no Asaas...");
+                try {
+                  const res = await fetch("/api/payments/checkout", {
+                    method: "POST",
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ planName: "Pro", value: 97 })
+                  });
+                  const data = await res.json();
+                  if (data.paymentLink) {
+                    toast.success("Redirecionando para o checkout...", { id: toastId });
+                    window.open(data.paymentLink, "_blank");
+                  } else {
+                    toast.error(data.error || "Erro ao gerar checkout", { id: toastId });
+                  }
+                } catch (e) {
+                  toast.error("Erro de conexão com o servidor", { id: toastId });
+                }
+              }}
+            >
+              Assinar Agora
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Cards de Estatísticas */}
         <div className="grid gap-4 md:grid-cols-3 mb-4">

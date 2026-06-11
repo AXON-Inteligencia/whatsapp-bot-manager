@@ -53,7 +53,8 @@ import {
   QrCode,
   MessageSquare,
   TrendingUp,
-  Image as ImageIcon
+  Image as ImageIcon,
+  FileText
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BotStatus } from "@/lib/types"
@@ -87,6 +88,8 @@ export default function BotsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [isQrOpen, setIsQrOpen] = useState(false)
+  const [knowledgeMetadata, setKnowledgeMetadata] = useState<any>(null)
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false)
   
   const [formData, setFormData] = useState({
     name: "",
@@ -173,7 +176,7 @@ export default function BotsPage() {
     toast.success("Bot atualizado com sucesso!")
   }
 
-  const openEditDialog = (botId: string) => {
+  const openEditDialog = async (botId: string) => {
     const bot = bots.find(b => b.id === botId)
     if (bot) {
       setFormData({
@@ -183,6 +186,51 @@ export default function BotsPage() {
         status: bot.status,
       })
       setEditingBot(botId)
+      setKnowledgeMetadata(null)
+      try {
+        const res = await fetch(`/api/bots/${botId}/knowledge`)
+        const data = await res.json()
+        if (data.metadata) setKnowledgeMetadata(data.metadata)
+      } catch (e) {}
+    }
+  }
+
+  const handleUploadPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !editingBot) return
+    
+    setIsUploadingPdf(true)
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    try {
+      const res = await fetch(`/api/bots/${editingBot}/knowledge`, {
+        method: 'POST',
+        body: formData
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success("Base de conhecimento atualizada!")
+        setKnowledgeMetadata(data.metadata)
+      } else {
+        toast.error(data.error || "Erro no upload")
+      }
+    } catch (err) {
+      toast.error("Erro de conexão ao enviar PDF")
+    } finally {
+      setIsUploadingPdf(false)
+      e.target.value = ""
+    }
+  }
+
+  const handleDeleteKnowledge = async () => {
+    if (!editingBot) return
+    try {
+      await fetch(`/api/bots/${editingBot}/knowledge`, { method: 'DELETE' })
+      setKnowledgeMetadata(null)
+      toast.success("Base de conhecimento removida!")
+    } catch (e) {
+      toast.error("Erro ao remover")
     }
   }
 
@@ -538,6 +586,46 @@ export default function BotsPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
+            </div>
+            
+            <div className="space-y-2 border-t pt-4 mt-4">
+              <Label>Base de Conhecimento (IA)</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Faça upload de um PDF para treinar a IA com informações exclusivas sobre a sua empresa.
+              </p>
+              {knowledgeMetadata ? (
+                <div className="bg-secondary/50 p-3 rounded-lg flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">{knowledgeMetadata.filename}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(knowledgeMetadata.fileSizeBytes / 1024).toFixed(1)} KB • {knowledgeMetadata.totalChunks} trechos extraídos
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={handleDeleteKnowledge}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-center">
+                  <div className="bg-secondary p-3 rounded-full mb-3">
+                    <FileText className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium">Fazer upload de PDF</p>
+                  <p className="text-xs text-muted-foreground mb-4">Máximo de 10MB. O texto será extraído e usado pela IA.</p>
+                  <div className="relative">
+                    <Button variant="outline" size="sm" disabled={isUploadingPdf}>
+                      {isUploadingPdf ? "Processando..." : "Selecionar Arquivo"}
+                    </Button>
+                    <input 
+                      type="file" 
+                      accept=".pdf"
+                      className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed" 
+                      onChange={handleUploadPdf}
+                      disabled={isUploadingPdf}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
