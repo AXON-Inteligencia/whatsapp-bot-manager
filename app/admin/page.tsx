@@ -287,7 +287,7 @@ export default function AdminPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-6">
-            <form onSubmit={handleCreateUser} className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 lg:items-end">
+            <form onSubmit={handleCreateUser} className="grid gap-4 md:grid-cols-2 lg:grid-cols-6 lg:items-end">
               <div>
                 <Label htmlFor="user-name" className="text-sm font-semibold text-slate-700">
                   Nome
