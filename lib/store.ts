@@ -89,16 +89,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   updateBot: async (id, updates) => {
     try {
-      await fetch('/api/bots', {
+      const res = await fetch('/api/bots', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...updates }),
       });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao atualizar bot');
+      }
       set((state) => ({
         bots: state.bots.map((bot) => (bot.id === id ? { ...bot, ...updates } : bot)),
       }));
     } catch (error) {
       console.error('Error updating bot:', error);
+      throw error;
     }
   },
 

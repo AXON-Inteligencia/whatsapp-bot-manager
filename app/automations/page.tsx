@@ -71,8 +71,8 @@ export default function AutomationsPage() {
       
       setEditingBot(null)
       toast.success("Cérebro de IA atualizado com sucesso!")
-    } catch (error) {
-      toast.error("Erro ao atualizar configurações")
+    } catch (error: any) {
+      toast.error(`Erro ao atualizar configurações: ${error.message}`)
     }
   }
 

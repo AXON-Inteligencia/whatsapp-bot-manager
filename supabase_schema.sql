@@ -15,9 +15,12 @@ CREATE TABLE IF NOT EXISTS bots (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   number TEXT,
+  phone TEXT,
   status TEXT DEFAULT 'offline',
   messages INTEGER DEFAULT 0,
   uptime TEXT DEFAULT '0%',
+  description TEXT,
+  "aiSettings" JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
