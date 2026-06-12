@@ -3,14 +3,16 @@
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Check, CreditCard, Sparkles, Zap } from "lucide-react"
+import { Check, CreditCard, Sparkles, Zap, Loader2 } from "lucide-react"
+import { useState } from "react"
+import { toast } from "sonner"
 
 const plans = [
   {
     name: "Starter",
-    price: "R$ 97",
+    price: 97,
+    priceStr: "R$ 97",
     description: "Perfeito para pequenos negócios e autônomos.",
     features: [
       "1 Bot Conectado",
@@ -22,7 +24,8 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "R$ 197",
+    price: 197,
+    priceStr: "R$ 197",
     description: "Para empresas que querem vender no automático.",
     features: [
       "Até 5 Bots Conectados",
@@ -37,7 +40,8 @@ const plans = [
   },
   {
     name: "Enterprise",
-    price: "R$ 497",
+    price: 497,
+    priceStr: "R$ 497",
     description: "Operações em grande escala e multi-atendentes.",
     features: [
       "Bots Ilimitados",
@@ -51,6 +55,37 @@ const plans = [
 ]
 
 export default function BillingPage() {
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  const handleSubscribe = async (plan: typeof plans[0]) => {
+    try {
+      setLoadingPlan(plan.name);
+      
+      const response = await fetch('/api/payments/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planName: plan.name,
+          value: plan.price
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao gerar checkout');
+      }
+
+      if (data.paymentLink) {
+        window.location.href = data.paymentLink;
+      }
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
   return (
     <DashboardLayout title="Faturamento" description="Gerencie sua assinatura, limites e métodos de pagamento.">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -134,7 +169,7 @@ export default function BillingPage() {
               </CardHeader>
               <CardContent className="flex-1">
                 <div className="mb-6">
-                  <span className="text-4xl font-bold">{plan.price}</span>
+                  <span className="text-4xl font-bold">{plan.priceStr}</span>
                   <span className="text-muted-foreground">/mês</span>
                 </div>
                 <ul className="space-y-3 text-sm">
@@ -148,14 +183,17 @@ export default function BillingPage() {
               </CardContent>
               <CardFooter>
                 <Button 
+                  onClick={() => handleSubscribe(plan)}
                   variant={plan.current ? "secondary" : (plan.popular ? "default" : "outline")} 
                   className="w-full gap-2"
-                  disabled={plan.current}
+                  disabled={plan.current || loadingPlan !== null}
                 >
-                  {plan.current ? "Plano Atual" : (
-                    <>
-                      <Zap className="w-4 h-4" /> Assinar {plan.name}
-                    </>
+                  {loadingPlan === plan.name ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Gerando link...</>
+                  ) : plan.current ? (
+                    "Plano Atual"
+                  ) : (
+                    <><Zap className="w-4 h-4" /> Assinar {plan.name}</>
                   )}
                 </Button>
               </CardFooter>

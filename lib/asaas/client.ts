@@ -100,12 +100,14 @@ export async function createPaymentLink(customerId: string, planName: string, va
     method: 'POST',
     body: JSON.stringify({
       billingType: 'UNDEFINED',
-      chargeType: 'DETACHED',
+      chargeType: 'RECURRENT',
       name: `Assinatura AxonFlow - ${planName}`,
-      description: `Pagamento do plano ${planName}`,
+      description: `Assinatura mensal do plano ${planName}`,
       value,
       dueDateLimitDays: 3,
       maxInstallmentCount: 1,
+      endDate: null,
+      subscriptionCycle: 'MONTHLY'
     })
   });
 
