@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'botId é obrigatório' }, { status: 400 });
     }
 
-    const MOTOR_URL = process.env.MOTOR_URL || 'http://localhost:10001';
+    const MOTOR_URL = process.env.MOTOR_URL || 'http://127.0.0.1:10001';
     
     console.log(`[Vercel API] Solicitando desconexão ao motor para o bot: ${botId}`);
 
