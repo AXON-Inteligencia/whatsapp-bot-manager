@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "tsx motor/server.ts & next start",
     "lint": "eslint .",
-    "start:motor": "ts-node motor/server.ts"
+    "start:motor": "tsx motor/server.ts"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
