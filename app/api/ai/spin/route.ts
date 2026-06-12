@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
-import { redis } from '@/lib/redis';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,8 +10,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Faltam parâmetros' }, { status: 400 });
     }
 
-    const bots: any[] = await redis.get('axon:bots') || [];
-    const bot = bots.find((b: any) => b.id === botId);
+    const { data: bot, error } = await supabase.from('bots').select('*').eq('id', botId).single();
 
     if (!bot || !bot.aiSettings?.apiKey) {
       return NextResponse.json({ error: 'Chave do Groq Cloud não configurada no bot' }, { status: 400 });
