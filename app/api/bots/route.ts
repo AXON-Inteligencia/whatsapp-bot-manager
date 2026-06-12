@@ -58,11 +58,20 @@ export async function PUT(req: NextRequest) {
   try {
     const { id, ...updates } = await req.json();
 
-    const { error } = await supabase.from('bots').update(updates).eq('id', id);
-    if (error) throw error;
+    console.log('[Bots API] Updating bot', id, 'with:', JSON.stringify(updates));
 
-    return NextResponse.json({ success: true });
+    const { error, data } = await supabase.from('bots').update(updates).eq('id', id).select();
+    
+    if (error) {
+      console.log('[Bots API] Update error:', error);
+      throw error;
+    }
+
+    console.log('[Bots API] Update successful, returned data:', JSON.stringify(data));
+
+    return NextResponse.json({ success: true, data });
   } catch (error: any) {
+    console.error('[Bots API] Catch error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -14,7 +14,10 @@ export async function POST(req: NextRequest) {
 
     const { data: bot, error } = await supabase.from('bots').select('*').eq('id', botId).single();
 
+    console.log('[AICopy] Bot fetched from DB:', JSON.stringify(bot));
+
     if (!bot || !bot.aiSettings?.apiKey) {
+      console.log('[AICopy] Missing aiSettings or apiKey!', bot?.aiSettings);
       return NextResponse.json({ error: 'Chave do Groq Cloud não configurada no bot' }, { status: 400 });
     }
 
