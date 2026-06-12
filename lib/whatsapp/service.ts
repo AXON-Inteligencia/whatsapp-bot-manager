@@ -72,21 +72,31 @@ async function useRedisAuthState(botId: string) {
   let creds: AuthenticationCreds;
   let keysData: any = {};
   
-  const savedCreds = await redis.get(`${key}:creds`);
-  const savedKeys = await redis.get(`${key}:keys`);
+  const savedCreds = await redis.get(`${key}:creds`).catch(() => null);
+  const savedKeys = await redis.get(`${key}:keys`).catch(() => null);
   
-  if (savedCreds) {
-    console.log(`[WhatsAppService] Carregando credenciais do Redis para o bot ${botId}`);
-    const credsStr = typeof savedCreds === 'string' ? savedCreds : JSON.stringify(savedCreds);
-    creds = JSON.parse(credsStr, BufferJSON.reviver);
-  } else {
-    console.log(`[WhatsAppService] Criando novas credenciais para o bot ${botId}`);
+  try {
+    if (savedCreds) {
+      console.log(`[WhatsAppService] Carregando credenciais do Redis para o bot ${botId}`);
+      const credsStr = typeof savedCreds === 'string' ? savedCreds : JSON.stringify(savedCreds);
+      creds = JSON.parse(credsStr, BufferJSON.reviver);
+    } else {
+      console.log(`[WhatsAppService] Criando novas credenciais para o bot ${botId}`);
+      creds = initAuthCreds();
+    }
+  } catch (e) {
+    console.error(`[WhatsAppService] Erro ao carregar credenciais do Redis, criando novas:`, e);
     creds = initAuthCreds();
   }
 
-  if (savedKeys) {
-    const keysStr = typeof savedKeys === 'string' ? savedKeys : JSON.stringify(savedKeys);
-    keysData = JSON.parse(keysStr, BufferJSON.reviver);
+  try {
+    if (savedKeys) {
+      const keysStr = typeof savedKeys === 'string' ? savedKeys : JSON.stringify(savedKeys);
+      keysData = JSON.parse(keysStr, BufferJSON.reviver);
+    }
+  } catch (e) {
+    console.error(`[WhatsAppService] Erro ao carregar chaves do Redis, ignorando:`, e);
+    keysData = {};
   }
 
   // Função helper para salvar as chaves com debounce/timeout para não inundar o Redis
@@ -170,7 +180,13 @@ export class WhatsAppService {
 
     // Usar o Redis para persistência em vez do sistema de arquivos local
     const { state, saveCreds } = await useRedisAuthState(botId);
-    const { version } = await fetchLatestBaileysVersion();
+    let version: [number, number, number] = [2, 3000, 1015901307];
+    try {
+      const res = await fetchLatestBaileysVersion();
+      version = res.version;
+    } catch (e) {
+      console.error('[WhatsAppService] Erro ao buscar versão do Baileys, usando fallback:', e);
+    }
 
     const sock = makeWASocket({
       version,
