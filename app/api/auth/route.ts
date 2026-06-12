@@ -12,40 +12,8 @@ export async function POST(request: NextRequest) {
     const email = body.email?.trim()
     const password = body.password?.trim()
 
-    // Para testes locais sem Postgres configurado:
-    if (email === "admin@axonflow.local" && password === "Axon@2026") {
-      const user = {
-        id: "local-admin",
-        name: "Administrador (Local)",
-        email: "admin@axonflow.local",
-        role: "admin",
-      }
-
-      const token = await new SignJWT({ 
-        id: user.id, 
-        email: user.email, 
-        role: user.role 
-      })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt()
-        .setExpirationTime('24h')
-        .sign(JWT_SECRET)
-
-      const response = NextResponse.json({
-        message: "Login realizado com sucesso",
-        user
-      })
-
-      response.cookies.set('axon-auth-token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24, // 24 horas
-        path: '/',
-      })
-
-      return response
-    }
+    // O bypass local foi removido para garantir que o admin use o Supabase
+    // e possua um ID real ('user-admin') compatível com o checkout de pagamentos.
 
     try {
       await initDB()
