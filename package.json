@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "tsx motor/server.ts & next start",
     "lint": "eslint .",
-    "start:motor": "tsx motor/server.ts"
+    "start:motor": "ts-node motor/server.ts"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
@@ -89,6 +89,7 @@
     "swr": "^2.4.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "^4.3.0",
+    "ts-node": "^10.9.2",
     "tsx": "^4.22.4",
     "tw-animate-css": "^1.0.0",
     "uuid": "^14.0.0",
