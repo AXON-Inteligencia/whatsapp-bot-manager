@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "tsx motor/server.ts & next start",
     "lint": "eslint .",
-    "start:motor": "tsx motor/server.ts"
+    "build:motor": "esbuild motor/server.ts --bundle --platform=node --outdir=dist-motor --external:express --external:cors --external:@whiskeysockets/baileys --external:@upstash/redis --external:dotenv --format=cjs",
+    "start:motor": "node dist-motor/server.js"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
@@ -58,6 +59,7 @@
     "cors": "^2.8.6",
     "date-fns": "4.1.0",
     "dotenv": "^17.4.2",
+    "esbuild": "^0.20.2",
     "embla-carousel-react": "8.6.0",
     "express": "^5.2.1",
     "framer-motion": "^12.40.0",
