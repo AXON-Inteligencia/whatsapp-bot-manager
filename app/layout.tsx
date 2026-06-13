@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: 'AxonFlow — Automação de WhatsApp com IA que Vende 24h',
   description: 'Aumente suas vendas e libere seu tempo. A plataforma definitiva de automação para WhatsApp com Inteligência Artificial, CRM Kanban e disparos em massa Anti-Ban.',
   generator: 'Next.js',
+  verification: {
+    google: 'K3l8WXYPhlI57Vq1hO9fe1dUg1glvQgqDlMNBdlKKAs',
+  },
   icons: {
     icon: [
       {
