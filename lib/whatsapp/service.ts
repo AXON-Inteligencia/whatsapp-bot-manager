@@ -259,8 +259,18 @@ export class WhatsAppService {
       
       // FEATURE 2: OUVIDO BIÔNICO (TRANSCRIÇÃO DE ÁUDIO)
       if (msg.message.audioMessage || msg.message.ptvMessage) {
-        const bots: any[] = await redis.get('axon:bots') || [];
-        const bot = bots.find((b: any) => b.id === botId);
+        let bot: any = null;
+        try {
+          const { createClient } = require('@supabase/supabase-js');
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+            process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+          );
+          const { data } = await supabase.from('bots').select('aiSettings').eq('id', botId).single();
+          bot = data;
+        } catch (e) {
+          console.error('[WhatsAppService] Erro ao buscar configurações do bot para transcrição', e);
+        }
         
         if (bot && bot.aiSettings?.enabled && bot.aiSettings?.apiKey) {
           const start = Date.now();
@@ -337,8 +347,18 @@ export class WhatsAppService {
 
       // LÓGICA DA IA (GROQ CLOUD)
       try {
-        const bots: any[] = await redis.get('axon:bots') || [];
-        const bot = bots.find((b: any) => b.id === botId);
+        const { createClient } = require('@supabase/supabase-js');
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+          process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+        );
+
+        const { data: bot } = await supabase
+          .from('bots')
+          .select('aiSettings')
+          .eq('id', botId)
+          .single();
+
         if (!bot || !bot.aiSettings?.enabled || !bot.aiSettings?.apiKey) return;
 
         // Rate Limiting (Fase 0.2)
