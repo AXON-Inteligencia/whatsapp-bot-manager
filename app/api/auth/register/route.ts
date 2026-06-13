@@ -61,6 +61,13 @@ export async function POST(req: NextRequest) {
     return response
   } catch (error: any) {
     console.error("[Register API Error]:", error)
-    return NextResponse.json({ error: `Erro ao criar conta no Banco de Dados: ${error.message || JSON.stringify(error)}` }, { status: 500 })
+    
+    // Debug helper to check if env vars are loaded
+    const debugUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "VAZIO_OU_UNDEFINED";
+    const debugKey = process.env.SUPABASE_SERVICE_ROLE_KEY ? "PREENCHIDA" : "VAZIA";
+    
+    return NextResponse.json({ 
+      error: `Erro ao criar conta no Banco de Dados. Detalhes: ${error.message || JSON.stringify(error)}. [DEBUG INFO: URL_BANCO='${debugUrl}', CHAVE='${debugKey}']` 
+    }, { status: 500 })
   }
 }
