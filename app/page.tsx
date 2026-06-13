@@ -152,7 +152,7 @@ export default function LandingPage() {
           </ul>
           <div className="nav-ctas">
             <a href="https://flow.axoninteligencia.com.br/login" className="btn-ghost">Login</a>
-            <a href="https://flow.axoninteligencia.com.br/" className="btn-primary">Começar Grátis</a>
+            <a href="/register" className="btn-primary">Começar Grátis</a>
           </div>
         </div>
       </nav>
@@ -165,7 +165,7 @@ export default function LandingPage() {
             <h1>Seu funcionário mais dedicado <span className="highlight">nunca dorme.</span></h1>
             <p className="hero-sub">O AxonFlow conecta uma IA ao seu WhatsApp e Instagram — fechando vendas no automático, 24h por dia, 7 dias por semana.</p>
             <div className="hero-ctas">
-              <a href="https://flow.axoninteligencia.com.br/" className="btn-primary" style={{ padding: '14px 28px', fontSize: '15px' }}>Criar conta grátis →</a>
+              <a href="/register" className="btn-primary" style={{ padding: '14px 28px', fontSize: '15px' }}>Criar conta grátis →</a>
               <a href="#how" className="btn-ghost" style={{ padding: '14px 28px', fontSize: '15px' }}>Ver como funciona</a>
             </div>
             <div className="hero-proof">
@@ -400,7 +400,7 @@ export default function LandingPage() {
                 <li>Suporte via Email</li>
                 <li>Dashboard completo</li>
               </ul>
-              <a href="https://flow.axoninteligencia.com.br/" className="btn-price secondary">Começar Starter</a>
+              <a href="/register" className="btn-price secondary">Começar Starter</a>
             </div>
             <div className="price-card featured">
               <div className="price-badge">⭐ Mais Vendido</div>
@@ -416,7 +416,7 @@ export default function LandingPage() {
                 <li>AI Stealth Spin</li>
                 <li>Suporte Prioritário</li>
               </ul>
-              <a href="https://flow.axoninteligencia.com.br/" className="btn-price primary-btn">Assinar Plano Pro</a>
+              <a href="/register" className="btn-price primary-btn">Assinar Plano Pro</a>
             </div>
             <div className="price-card">
               <div className="price-name">Enterprise</div>
@@ -431,7 +431,7 @@ export default function LandingPage() {
                 <li>Onboarding Dedicado</li>
                 <li>API Access</li>
               </ul>
-              <a href="https://flow.axoninteligencia.com.br/" className="btn-price secondary">Começar Enterprise</a>
+              <a href="/register" className="btn-price secondary">Começar Enterprise</a>
             </div>
           </div>
         </div>
@@ -471,7 +471,7 @@ export default function LandingPage() {
         <div className="cta-final-inner reveal">
           <h2>Seu concorrente já está<br/>usando IA. <span style={{ color: 'var(--neon)' }}>E você?</span></h2>
           <p>Comece grátis hoje. Configure em minutos. Venda no automático amanhã.</p>
-          <a href="https://flow.axoninteligencia.com.br/" className="btn-cta">Criar minha conta grátis →</a>
+          <a href="/register" className="btn-cta">Criar minha conta grátis →</a>
           <div className="cta-note">✦ Sem cartão de crédito · Cancele quando quiser · Suporte em português</div>
         </div>
       </div>
