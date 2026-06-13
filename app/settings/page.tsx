@@ -53,6 +53,52 @@ export default function SettingsPage() {
     setTimeout(() => setMessage(null), 3000)
   }
 
+  const handleSendTelegramCode = async () => {
+    if (!telegramPhone) return;
+    setTelegramLoading(true);
+    try {
+      const res = await fetch('/api/telegram/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sendCode', phoneNumber: telegramPhone })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTelegramStep(2);
+        alert('Código SMS enviado! Verifique seu Telegram.');
+      } else {
+        alert('Erro ao enviar código: ' + data.error);
+      }
+    } catch (e) {
+      alert('Erro de conexão ao enviar código.');
+    }
+    setTelegramLoading(false);
+  }
+
+  const handleVerifyTelegramCode = async () => {
+    if (!telegramCode) return;
+    setTelegramLoading(true);
+    try {
+      const res = await fetch('/api/telegram/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verifyCode', phoneNumber: telegramPhone, code: telegramCode })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTelegramStep(1);
+        setTelegramPhone('');
+        setTelegramCode('');
+        alert('Telegram conectado com sucesso! O robô espião está pronto.');
+      } else {
+        alert('Erro ao verificar código: ' + data.error);
+      }
+    } catch (e) {
+      alert('Erro de conexão ao verificar código.');
+    }
+    setTelegramLoading(false);
+  }
+
   return (
     <DashboardLayout
       title="Configurações"
