@@ -17,6 +17,12 @@ export default function SettingsPage() {
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [language, setLanguage] = useState("pt-BR")
   const [message, setMessage] = useState<string | null>(null)
+  
+  // Telegram States
+  const [telegramPhone, setTelegramPhone] = useState("")
+  const [telegramCode, setTelegramCode] = useState("")
+  const [telegramStep, setTelegramStep] = useState<1 | 2>(1)
+  const [telegramLoading, setTelegramLoading] = useState(false)
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -140,23 +146,51 @@ export default function SettingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="telegramPhone">Número de Telefone (com DDI)</Label>
-                <Input
-                  id="telegramPhone"
-                  type="text"
-                  placeholder="+5511999999999"
-                  className="mt-1 bg-background border-border"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
-                  Enviar Código SMS
-                </Button>
-                <Button type="button" variant="outline" className="w-full sm:w-auto border-blue-500/50 hover:bg-blue-500/10 text-blue-400" onClick={() => window.location.href='/telegram-scraper'}>
-                  Abrir Extrator de Grupos
-                </Button>
-              </div>
+              {telegramStep === 1 ? (
+                <>
+                  <div>
+                    <Label htmlFor="telegramPhone">Número de Telefone (com DDI)</Label>
+                    <Input
+                      id="telegramPhone"
+                      type="text"
+                      value={telegramPhone}
+                      onChange={(e) => setTelegramPhone(e.target.value)}
+                      placeholder="+5511999999999"
+                      className="mt-1 bg-background border-border"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="button" onClick={handleSendTelegramCode} disabled={telegramLoading || !telegramPhone} className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
+                      {telegramLoading ? 'Enviando...' : 'Enviar Código SMS'}
+                    </Button>
+                    <Button type="button" variant="outline" className="w-full sm:w-auto border-blue-500/50 hover:bg-blue-500/10 text-blue-400" onClick={() => window.location.href='/telegram-scraper'}>
+                      Abrir Extrator de Grupos
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <Label htmlFor="telegramCode">Código SMS do Telegram</Label>
+                    <Input
+                      id="telegramCode"
+                      type="text"
+                      value={telegramCode}
+                      onChange={(e) => setTelegramCode(e.target.value)}
+                      placeholder="12345"
+                      className="mt-1 bg-background border-border"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="button" onClick={handleVerifyTelegramCode} disabled={telegramLoading || !telegramCode} className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto">
+                      {telegramLoading ? 'Verificando...' : 'Confirmar e Conectar'}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setTelegramStep(1)} className="w-full sm:w-auto border-red-500/50 hover:bg-red-500/10 text-red-400">
+                      Cancelar
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
