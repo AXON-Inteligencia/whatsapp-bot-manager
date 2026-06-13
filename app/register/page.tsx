@@ -28,9 +28,33 @@ export default function RegisterPage() {
       })
 
       if (res.ok) {
-        toast.success("Conta criada! Redirecionando para pagamento...")
-        // Remover hack antigo, o cookie já está sendo setado pela API
+        toast.success("Conta criada! Gerando link de pagamento...")
         localStorage.setItem("axonflow_user_plan", formData.plan)
+        
+        try {
+          const planPrices = { starter: 97, pro: 197, enterprise: 497 }
+          const planNameObj = { starter: "Starter", pro: "Pro", enterprise: "Enterprise" }
+          
+          const checkoutRes = await fetch('/api/payments/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              planName: planNameObj[formData.plan as keyof typeof planNameObj],
+              value: planPrices[formData.plan as keyof typeof planPrices]
+            })
+          })
+          
+          const checkoutData = await checkoutRes.json()
+          if (checkoutRes.ok && checkoutData.paymentLink) {
+             window.location.href = checkoutData.paymentLink
+             return
+          } else {
+             toast.error(checkoutData.error || "Erro ao gerar checkout, redirecionando...")
+          }
+        } catch (e) {
+           console.error("Erro ao gerar checkout", e)
+        }
+        
         setTimeout(() => router.push("/faturamento"), 1500)
       } else {
         const errorData = await res.json()
