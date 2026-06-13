@@ -51,22 +51,27 @@ export async function POST(req: NextRequest) {
 
       try {
         let cleanPhone = phone.replace(/\D/g, '');
-        // Se for um número brasileiro sem o 55 (ex: 41999999999)
         if (cleanPhone.length === 10 || cleanPhone.length === 11) {
           cleanPhone = '55' + cleanPhone;
         }
-        const formattedPhone = cleanPhone + '@s.whatsapp.net';
-
-        if (mediaUrl && mediaType) {
-          await WhatsAppService.sendMessageWithMedia(
+        
+        const MOTOR_URL = process.env.MOTOR_URL || 'http://127.0.0.1:10001';
+        
+        const sendResponse = await fetch(`${MOTOR_URL}/api/whatsapp/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             botId,
-            formattedPhone,
+            to: cleanPhone,
             message,
             mediaUrl,
             mediaType
-          );
-        } else {
-          await WhatsAppService.sendMessage(botId, formattedPhone, message);
+          })
+        });
+
+        if (!sendResponse.ok) {
+          const errorData = await sendResponse.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${sendResponse.status}`);
         }
 
         results.push({ phone, status: 'sent' });
