@@ -20,7 +20,7 @@ const plans = [
       "Extrator de Grupos Google",
       "Suporte via Email",
     ],
-    current: true,
+    current: false,
   },
   {
     name: "Pro",
