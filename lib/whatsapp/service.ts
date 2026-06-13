@@ -226,7 +226,8 @@ export class WhatsAppService {
 
       if (connection === 'close') {
         const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        // Não reconectar se for deslogado (401), banido (403) ou outro erro fatal de auth
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut && statusCode !== 401 && statusCode !== 403;
         
         console.log(`[WhatsAppService] Conexão fechada para o bot ${botId}. Código: ${statusCode}. Reconectando: ${shouldReconnect}`);
         
