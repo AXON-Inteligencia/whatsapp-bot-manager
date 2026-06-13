@@ -94,6 +94,23 @@ app.post('/api/whatsapp/send', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`[Motor] Servidor rodando na porta ${PORT}`);
+  
+  // Reconectar bots ativos automaticamente ao reiniciar a Render
+  try {
+    const keys = await redisRest.keys('status:*');
+    if (keys && keys.length > 0) {
+      for (const key of keys) {
+        const status = await redisRest.get(key);
+        if (status === 'online') {
+          const botId = key.replace('status:', '');
+          console.log(`[Motor] Restaurando conexão do bot: ${botId}`);
+          WhatsAppService.connect(botId).catch(err => console.error(`Erro ao restaurar bot ${botId}`, err));
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Motor] Erro ao buscar bots para reconexão:', err);
+  }
 });

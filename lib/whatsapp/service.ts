@@ -18,6 +18,11 @@ import { redis } from '../redis';
 import Groq from 'groq-sdk';
 import { logConversationStart, updateConversationMessage, initAnalyticsTable, updateConversationRoute } from '../analytics';
 import { downloadAudio, transcribeAudio } from './audio';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const logger = pino({ level: 'info' });
 const SESSIONS_DIR = '/tmp/sessions';
@@ -261,15 +266,14 @@ export class WhatsAppService {
       if (msg.message.audioMessage || msg.message.ptvMessage) {
         let bot: any = null;
         try {
-          const { createClient } = require('@supabase/supabase-js');
-          const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-            process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-          );
-          const { data } = await supabase.from('bots').select('aiSettings').eq('id', botId).single();
+          const { data } = await supabase
+            .from('bots')
+            .select('aiSettings')
+            .eq('id', botId)
+            .single();
           bot = data;
-        } catch (e) {
-          console.error('[WhatsAppService] Erro ao buscar configurações do bot para transcrição', e);
+        } catch (err) {
+          console.error('[Ouvido Biônico] Erro ao buscar configurações da IA', err);
         }
         
         if (bot && bot.aiSettings?.enabled && bot.aiSettings?.apiKey) {
@@ -347,17 +351,16 @@ export class WhatsAppService {
 
       // LÓGICA DA IA (GROQ CLOUD)
       try {
-        const { createClient } = require('@supabase/supabase-js');
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-          process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-        );
-
-        const { data: bot } = await supabase
+        const { data: bot, error } = await supabase
           .from('bots')
           .select('aiSettings')
           .eq('id', botId)
           .single();
+          
+        if (error) {
+          console.error('[WhatsAppService] Supabase DB erro:', error);
+          return;
+        }
 
         if (!bot || !bot.aiSettings?.enabled || !bot.aiSettings?.apiKey) return;
 
@@ -497,8 +500,12 @@ INSTRUÇÕES IMPORTANTES:
         const delay = Math.min(Math.max(responseText.length * 20, 1000), 4000);
         await new Promise(r => setTimeout(r, delay));
 
-        await sock.sendPresenceUpdate('paused', remoteJid);
-        await sock.sendMessage(remoteJid, { text: responseText });
+        try {
+          await sock.sendPresenceUpdate('paused', remoteJid);
+          await sock.sendMessage(remoteJid, { text: responseText });
+        } catch (sendErr) {
+          console.error('[WhatsAppService] Erro crítico ao enviar mensagem pelo socket (zombie connection?):', sendErr);
+        }
         
         // SALVAR A RESPOSTA DA IA NO REDIS IMEDIATAMENTE
         try {
