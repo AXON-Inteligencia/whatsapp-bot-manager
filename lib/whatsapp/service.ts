@@ -575,6 +575,11 @@ INSTRUÇÕES IMPORTANTES:
     if (!sock) {
       throw new Error('Bot não está conectado ou a sessão expirou. Reconecte-o no painel.');
     }
+    
+    // Salva a mensagem enviada no histórico da IA para contexto
+    const phone = to.split('@')[0];
+    appendToHistory(phone, 'assistant', text);
+    
     return await sock.sendMessage(to, { text });
   }
 
@@ -583,6 +588,13 @@ INSTRUÇÕES IMPORTANTES:
     if (!sock) {
       throw new Error('Bot não está conectado ou a sessão expirou. Reconecte-o no painel.');
     }
+    
+    // Salva a mensagem enviada no histórico da IA para contexto
+    const phone = to.split('@')[0];
+    if (text) {
+      appendToHistory(phone, 'assistant', text);
+    }
+    
     const message: any = { caption: text };
     if (mediaType === 'image') message.image = { url: mediaUrl };
     else if (mediaType === 'video') message.video = { url: mediaUrl };
