@@ -131,6 +131,36 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Integração Telegram (Userbot) */}
+          <Card className="bg-card border-border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="bg-gradient-to-tr from-blue-400 to-cyan-500 bg-clip-text text-transparent text-xl font-bold">Telegram</span>
+                Userbot Espião (Gram.js)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="telegramPhone">Número de Telefone (com DDI)</Label>
+                <Input
+                  id="telegramPhone"
+                  type="text"
+                  placeholder="+5511999999999"
+                  className="mt-1 bg-background border-border"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
+                  Enviar Código SMS
+                </Button>
+                <Button type="button" variant="outline" className="w-full sm:w-auto border-blue-500/50 hover:bg-blue-500/10 text-blue-400" onClick={() => window.location.href='/telegram-scraper'}>
+                  Abrir Extrator de Grupos
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+
           {/* Notificações */}
           <Card className="bg-card border-border">
             <CardHeader>
