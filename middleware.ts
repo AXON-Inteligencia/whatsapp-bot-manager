@@ -56,6 +56,14 @@ export async function middleware(request: NextRequest) {
       throw new Error("Token expired");
     }
 
+    // Verificar Paywall (se não estiver pago/ativo, bloquear acesso ao dashboard)
+    const isPaid = payload.paymentStatus === 'paid' || payload.paymentStatus === 'active';
+    const isFaturamentoRoute = pathname.startsWith('/faturamento');
+    
+    if (!isPaid && !isFaturamentoRoute && !pathname.startsWith('/api/') && !pathname.startsWith('/admin')) {
+      return NextResponse.redirect(new URL('/faturamento', request.url))
+    }
+
     return NextResponse.next()
   } catch (error) {
     console.error("Token JWT inválido ou expirado:", error)

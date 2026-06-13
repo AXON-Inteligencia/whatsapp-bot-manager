@@ -28,12 +28,10 @@ export default function RegisterPage() {
       })
 
       if (res.ok) {
-        toast.success("Conta criada! Redirecionando...")
-        // Simulando login
-        localStorage.setItem("whatsapp-admin-auth", "true")
+        toast.success("Conta criada! Redirecionando para pagamento...")
+        // Remover hack antigo, o cookie já está sendo setado pela API
         localStorage.setItem("axonflow_user_plan", formData.plan)
-        localStorage.setItem("axonflow_payment_status", "pending")
-        setTimeout(() => router.push("/dashboard"), 1500)
+        setTimeout(() => router.push("/faturamento"), 1500)
       } else {
         const errorData = await res.json()
         toast.error(errorData.error || "Erro ao criar conta")

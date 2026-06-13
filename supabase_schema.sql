@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Criação da tabela de Bots (Instâncias do WhatsApp)
 CREATE TABLE IF NOT EXISTS bots (
   id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   number TEXT,
   phone TEXT,

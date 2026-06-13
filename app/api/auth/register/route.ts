@@ -23,14 +23,42 @@ export async function POST(req: NextRequest) {
       email,
       password: hashedPassword,
       role: role || "user",
-      plan: plan || "free",
+      plan: plan || "starter",
       paymentStatus: paymentStatus || "pending"
     })
 
     // Remove password before returning
     const { password: _, ...userWithoutPassword } = user
 
-    return NextResponse.json(userWithoutPassword, { status: 201 })
+    // Gerar Token JWT
+    const { SignJWT } = await import("jose")
+    const JWT_SECRET = new TextEncoder().encode(
+      process.env.JWT_SECRET || 'axon-inteligencia-secret-key-2024'
+    )
+    
+    const token = await new SignJWT({ 
+      id: user.id, 
+      email: user.email, 
+      role: user.role,
+      plan: user.plan,
+      paymentStatus: user.paymentStatus
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('24h')
+      .sign(JWT_SECRET)
+
+    const response = NextResponse.json(userWithoutPassword, { status: 201 })
+    
+    response.cookies.set('axon-auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24, // 24 horas
+      path: '/',
+    })
+
+    return response
   } catch (error: any) {
     console.error("[Register API Error]:", error)
     return NextResponse.json({ error: `Erro ao criar conta no Banco de Dados: ${error.message || JSON.stringify(error)}` }, { status: 500 })
