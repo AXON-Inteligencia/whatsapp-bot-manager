@@ -62,7 +62,8 @@ export class TelegramUserbotService {
     if (!client) throw new Error('Cliente Telegram não encontrado na memória');
 
     try {
-      await client.invoke(new (require('telegram/tl').Api).auth.SignIn({
+      const { Api } = require('telegram');
+      await client.invoke(new Api.auth.SignIn({
         phoneNumber,
         phoneCodeHash,
         phoneCode: code,
@@ -70,9 +71,11 @@ export class TelegramUserbotService {
     } catch (err: any) {
       if (err.message.includes('SESSION_PASSWORD_NEEDED') && password) {
         // Autenticação de Dois Fatores
-        await client.invoke(new (require('telegram/tl').Api).auth.CheckPassword({
-          password: require('telegram/crypto/SRP').computeCheck(
-            await client.invoke(new (require('telegram/tl').Api).account.GetPassword()),
+        const { Api } = require('telegram');
+        const { computeCheck } = require('telegram/Password');
+        await client.invoke(new Api.auth.CheckPassword({
+          password: computeCheck(
+            await client.invoke(new Api.account.GetPassword()),
             password
           )
         }));
