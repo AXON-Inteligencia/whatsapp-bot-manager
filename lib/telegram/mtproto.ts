@@ -5,9 +5,10 @@ import pino from 'pino';
 
 const logger = pino({ level: 'info' });
 
-// Credenciais Globais (Precisam ser geradas no my.telegram.org)
-const API_ID = parseInt(process.env.TELEGRAM_API_ID || '0');
-const API_HASH = process.env.TELEGRAM_API_HASH || '';
+// Usando chaves públicas do Telegram Android/Desktop por padrão para facilitar
+// Isso evita que o cliente precise criar um App no my.telegram.org (que costuma dar erro de too many tries)
+const API_ID = parseInt(process.env.TELEGRAM_API_ID || '2040');
+const API_HASH = process.env.TELEGRAM_API_HASH || 'b18441a1ff607e10a989891a5462e627';
 
 export class TelegramUserbotService {
   private clients: Map<string, TelegramClient> = new Map();
@@ -15,6 +16,8 @@ export class TelegramUserbotService {
   constructor() {
     if (!API_ID || !API_HASH) {
       logger.warn('[Telegram] TELEGRAM_API_ID e TELEGRAM_API_HASH não configurados. Userbot desativado.');
+    } else {
+      logger.info(`[Telegram] Inicializando serviço MTProto com API_ID: ${API_ID}`);
     }
   }
 
