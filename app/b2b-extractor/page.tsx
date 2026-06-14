@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Search, Loader2, Factory, ArrowRight, MessageCircle } from 'lucide-react';
+import { Search, Loader2, Factory, ArrowRight, MessageCircle, Download, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface LeadB2B {
@@ -131,6 +131,41 @@ export default function B2BExtractorPage() {
     }
   };
 
+  const handleClear = async () => {
+    if (!confirm('Tem certeza que deseja apagar TODOS os leads desta tabela?')) return;
+    
+    try {
+      const res = await fetch('/api/leads/clear', { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setLeads([]);
+        setSelectedLeads(new Set());
+      } else {
+        alert('Erro ao limpar: ' + data.error);
+      }
+    } catch (err) {
+      alert('Erro de conexão ao limpar tabela');
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (leads.length === 0) return;
+    const headers = ['Empresa', 'Socio', 'WhatsApp', 'Localidade', 'Nicho', 'Status'];
+    const csvContent = [
+      headers.join(','),
+      ...leads.map(l => `"${l.nome_empresa}","${l.nome_socio || ''}","${l.whatsapp}","${l.localidade}","${l.nicho_busca}","${l.status_disparo}"`)
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `leads_b2b_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <DashboardLayout
       title="Caçador de Leads B2B"
@@ -233,9 +268,17 @@ export default function B2BExtractorPage() {
                 <Factory className="w-5 h-5 text-purple-400" />
                 Câmara de Leads Validados ({leads.length})
               </CardTitle>
-              <Button variant="outline" size="sm" onClick={fetchLeads}>
-                <Loader2 className={`w-4 h-4 ${isLoadingLeads ? 'animate-spin' : ''}`} />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleExportCSV} title="Exportar para Excel (CSV)" disabled={leads.length === 0}>
+                  <Download className="w-4 h-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleClear} title="Apagar Tabela" className="text-red-500 hover:text-red-600 hover:bg-red-500/10">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={fetchLeads} title="Atualizar">
+                  <Loader2 className={`w-4 h-4 ${isLoadingLeads ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto rounded-md border border-border">
