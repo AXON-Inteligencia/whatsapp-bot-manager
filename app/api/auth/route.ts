@@ -12,8 +12,44 @@ export async function POST(request: NextRequest) {
     const email = body.email?.trim()
     const password = body.password?.trim()
 
-    // O bypass local foi removido para garantir que o admin use o Supabase
-    // e possua um ID real ('user-admin') compatível com o checkout de pagamentos.
+    // Bypass para o Administrador Local (Hardcoded)
+    if (email === "admin@axonflow.local" && password === "admin123") {
+      const adminUser = {
+        id: "admin-local-123",
+        name: "Administrador (Local)",
+        email: "admin@axonflow.local",
+        role: "admin",
+        plan: "enterprise",
+        paymentStatus: "approved",
+      }
+      
+      const token = await new SignJWT({ 
+        id: adminUser.id, 
+        email: adminUser.email, 
+        role: adminUser.role,
+        plan: adminUser.plan,
+        paymentStatus: adminUser.paymentStatus
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime('24h')
+        .sign(JWT_SECRET)
+
+      const response = NextResponse.json({
+        message: "Login de Administrador realizado com sucesso",
+        user: adminUser
+      })
+
+      response.cookies.set('axon-auth-token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24, // 24 horas
+        path: '/',
+      })
+
+      return response
+    }
 
     try {
       await initDB()

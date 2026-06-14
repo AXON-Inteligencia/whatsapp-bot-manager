@@ -18,17 +18,25 @@ export default function TelegramScraperPage() {
     if (!keyword.trim()) return;
 
     setLoading(true);
-    // Simulação do backend para fins de visualização rápida
-    setTimeout(() => {
-      setResults([
-        `https://t.me/joinchat/crypto_brasil_${Math.floor(Math.random() * 1000)}`,
-        `https://t.me/joinchat/investimentos_oficial`,
-        `https://t.me/marketing_digital_vip`,
-        `https://t.me/joinchat/vendas_online_${Math.floor(Math.random() * 1000)}`,
-        `https://t.me/empreendedorismo_br`,
-      ]);
+    setResults([]);
+    try {
+      const res = await fetch('/api/telegram/scraper', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword })
+      });
+      const data = await res.json();
+      
+      if (data.success && data.data) {
+        setResults(data.data);
+      } else {
+        alert('Erro ao buscar grupos: ' + (data.error || 'Desconhecido'));
+      }
+    } catch (err) {
+      alert('Erro de conexão ao buscar grupos.');
+    } finally {
       setLoading(false);
-    }, 2500);
+    }
   };
 
   return (
