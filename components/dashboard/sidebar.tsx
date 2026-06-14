@@ -16,6 +16,7 @@ import {
   Megaphone,
   UsersRound,
   Kanban,
+  Search,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -34,6 +35,8 @@ const navigation = [
   { name: "CRM Kanban", href: "/crm", icon: Kanban },
   { name: "Grupos", href: "/groups", icon: UsersRound },
   { name: "Automações", href: "/automations", icon: Zap },
+  { name: "Extrator B2B", href: "/b2b-extractor", icon: Search },
+  { name: "Extrator Telegram", href: "/telegram-scraper", icon: ShieldCheck },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Admin", href: "/admin", icon: ShieldCheck },
 ]
