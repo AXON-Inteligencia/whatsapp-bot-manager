@@ -13,8 +13,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Número de telefone é obrigatório' }, { status: 400 });
     }
 
+    // Formatação inteligente do número
+    let formattedPhone = phoneNumber.replace(/\D/g, ''); // Remove tudo que não é número
+    if (formattedPhone.length === 10 || formattedPhone.length === 11) {
+      formattedPhone = '+55' + formattedPhone; // Adiciona +55 automaticamente
+    } else if (!phoneNumber.startsWith('+')) {
+      formattedPhone = '+' + formattedPhone;
+    } else {
+      formattedPhone = phoneNumber;
+    }
+
     if (action === 'sendCode') {
-      const result = await telegramService.sendLoginCode(TEMP_BOT_ID, phoneNumber);
+      const result = await telegramService.sendLoginCode(TEMP_BOT_ID, formattedPhone);
       return NextResponse.json(result);
     } 
     
