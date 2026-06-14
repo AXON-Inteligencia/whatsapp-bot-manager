@@ -448,6 +448,19 @@ Responda apenas: vendas ou suporte`;
         let systemPromptText = intent === 'sales' ? botSalesPrompt : botSupportPrompt;
 
         // Base de Conhecimento (RAG)
+        
+        // --- NÍVEL 4: AI APPOINTMENT SETTER (O Fechador Autônomo) ---
+        // Verifica se este cliente veio do Extrator B2B
+        const isOutboundLead = await redis.get(`outbound:${contactPhone}`);
+        
+        if (isOutboundLead === 'true') {
+          console.log(`[AI Setter] Ativando protocolo de Fechamento B2B para o lead ${contactPhone}`);
+          systemPromptText = `Você é um Executivo de Vendas (Closer) Sênior de uma agência de tecnologia.
+Nós prospectamos este cliente de forma ativa (Outbound). A sua missão é quebrar objeções de forma extremamente polida, persuasiva e natural (NUNCA pareça um robô). 
+Seu objetivo final é agendar uma demonstração ou enviar o link do nosso Checkout.
+Aja com escuta ativa, faça perguntas curtas para entender a dor dele e guie a conversa para o fechamento.`;
+        }
+        // -------------------------------------------------------------
         let knowledgeContext = "";
         try {
           const knowledgeDataStr = await redis.get(`bot:${botId}:knowledge`);

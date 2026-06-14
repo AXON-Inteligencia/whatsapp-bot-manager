@@ -31,6 +31,7 @@ export default function B2BExtractorPage() {
   const [templateMsg, setTemplateMsg] = useState('Olá {nome_socio}! Vi que você é responsável pela {nome_empresa} em {cidade}. Gostaríamos de apresentar uma solução...');
   const [sessionId, setSessionId] = useState('7gs9v3z'); // Simulado para demonstração, idealmente vem de um dropdown
   const [isQueueing, setIsQueueing] = useState(false);
+  const [useAI, setUseAI] = useState(false);
 
   const fetchLeads = async () => {
     setIsLoadingLeads(true);
@@ -93,7 +94,8 @@ export default function B2BExtractorPage() {
         body: JSON.stringify({
           leadIds: Array.from(selectedLeads),
           templateMsg,
-          sessionId
+          sessionId,
+          useAI // Envia a flag para o backend
         })
       });
       const data = await res.json();
@@ -196,10 +198,22 @@ export default function B2BExtractorPage() {
                     className="w-full mt-1 bg-background border-border rounded-md p-2 text-sm text-foreground focus:ring-green-500 min-h-[120px]"
                   />
                 </div>
+                <div className="flex items-center space-x-2 mt-2 bg-purple-500/10 p-3 rounded-md border border-purple-500/20">
+                  <input
+                    type="checkbox"
+                    id="useAI"
+                    checked={useAI}
+                    onChange={(e) => setUseAI(e.target.checked)}
+                    className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                  />
+                  <Label htmlFor="useAI" className="text-purple-300 cursor-pointer flex-1">
+                    🤖 Gerar Abordagem com Inteligência Artificial (O texto acima servirá apenas como base para a IA criar uma mensagem única por cliente)
+                  </Label>
+                </div>
                 <Button 
                   onClick={handleQueue}
                   disabled={isQueueing || selectedLeads.size === 0}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white mt-4"
                 >
                   {isQueueing ? (
                     <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Injetando na Fila...</>
