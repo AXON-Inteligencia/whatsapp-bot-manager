@@ -11,7 +11,7 @@ interface LocalResult {
  * 1. Extração no Google Maps (Usando SerpApi Local)
  */
 export async function fetchGoogleMapsLeads(nicho: string, localizacao: string): Promise<LocalResult[]> {
-  const API_KEY = process.env.SERPAPI_KEY;
+  const API_KEY = process.env.SERPAPI_KEY || '37b0bbddeebe4ad8dbf931674254dd5a487dcf321640da5b245ed6ed362ed630';
   if (!API_KEY) {
     console.error("SERPAPI_KEY não configurada.");
     return [];
