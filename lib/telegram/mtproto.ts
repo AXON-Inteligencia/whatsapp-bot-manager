@@ -27,15 +27,19 @@ export class TelegramUserbotService {
   async sendLoginCode(botId: string, phoneNumber: string) {
     if (!API_ID || !API_HASH) throw new Error('API Credentials missing');
     
+    logger.info(`[Telegram] Iniciando requisição de código SMS para: ${phoneNumber}`);
+    
     // Iniciar sessão vazia
     const stringSession = new StringSession('');
     const client = new TelegramClient(stringSession, API_ID, API_HASH, {
       connectionRetries: 5,
     });
 
+    logger.info(`[Telegram] Conectando cliente MTProto aos servidores do Telegram...`);
     await client.connect();
+    logger.info(`[Telegram] Cliente conectado. Solicitando envio do código...`);
 
-    const { phoneCodeHash } = await client.sendCode(
+    const response = await client.sendCode(
       {
         apiId: API_ID,
         apiHash: API_HASH,
@@ -43,11 +47,13 @@ export class TelegramUserbotService {
       phoneNumber
     );
 
+    logger.info(`[Telegram] Resposta do Telegram: ${JSON.stringify(response)}`);
+
     // Salva temporariamente o client e o hash para a verificação do código
     this.clients.set(`auth:${botId}`, client);
-    await redis.set(`tg_auth:${botId}`, JSON.stringify({ phoneNumber, phoneCodeHash }), { ex: 300 });
+    await redis.set(`tg_auth:${botId}`, JSON.stringify({ phoneNumber, phoneCodeHash: response.phoneCodeHash }), { ex: 300 });
 
-    return { success: true, message: 'Código enviado para o Telegram' };
+    return { success: true, message: 'Código enviado para o Telegram', isCodeViaApp: response.isCodeViaApp };
   }
 
   /**
